@@ -1,13 +1,20 @@
+import sns as sns
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np
+from scipy import stats
+from scipy.stats import norm, skew #for some statistics
+import seaborn as sns
+color = sns.color_palette()
+sns.set_style('darkgrid')
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error
 #mean_squared_error(y_true, y_pred, squared=False)
 import pandas as pd
+from progressbar import progressbar
 def mean_absolute_percentage_error(y_true, y_pred):
     y_true, y_pred = np.array(y_true), np.array(y_pred)
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
@@ -41,7 +48,8 @@ from sklearn.model_selection import RandomizedSearchCV
 from sklearn.naive_bayes import GaussianNB
 from sklearn.decomposition import TruncatedSVD
 import lightgbm as lgb
-
+import statsmodels.api as sm
+from scipy import stats
 
 class MultiColumnLabelEncoder:
     def __init__(self,columns = None):
@@ -100,20 +108,57 @@ df_train = df_train.drop(df_train[(df_train['EnclosedPorch'] > 500) & (df_train[
 #     plt.show()
 #     print(str(col) + ' is clean!')
 #     print(" ")
-#######################################################################################################################################
+################################# Log-transformation of the target variable #############################################
+sns.distplot(df_train['SalePrice'] , fit=norm);
+
+# Get the fitted parameters used by the function
+(mu, sigma) = norm.fit(df_train['SalePrice'])
+print( '\n mu = {:.2f} and sigma = {:.2f}\n'.format(mu, sigma))
+
+#Now plot the distribution
+plt.legend(['Normal dist. ($\mu=$ {:.2f} and $\sigma=$ {:.2f} )'.format(mu, sigma)],
+            loc='best')
+plt.ylabel('Frequency')
+plt.title('SalePrice distribution')
+
+#Get also the QQ-plot
+fig = plt.figure()
+res = stats.probplot(df_train['SalePrice'], plot=plt)
+plt.show()
+
+#We use the numpy fuction log1p which  applies log(1+x) to all elements of the column
+df_train["SalePrice"] = np.log1p(df_train["SalePrice"])
+
+#Check the new distribution
+sns.distplot(df_train['SalePrice'] , fit=norm);
+
+# Get the fitted parameters used by the function
+(mu, sigma) = norm.fit(df_train['SalePrice'])
+print( '\n mu = {:.2f} and sigma = {:.2f}\n'.format(mu, sigma))
+
+#Now plot the distribution
+plt.legend(['Normal dist. ($\mu=$ {:.2f} and $\sigma=$ {:.2f} )'.format(mu, sigma)],
+            loc='best')
+plt.ylabel('Frequency')
+plt.title('SalePrice distribution')
+
+#Get also the QQ-plot
+fig = plt.figure()
+res = stats.probplot(df_train['SalePrice'], plot=plt)
+plt.show()
 
 
 
-X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:,1:-1], df_train.iloc[:,-1], test_size=0.25, shuffle=True)
-
-
-best_model = lgb.LGBMRegressor(num_leaves=110, max_depth=40)
+best_model = lgb.LGBMRegressor(num_leaves=120, max_depth=40)
 model = BaggingRegressor(base_estimator=best_model, n_estimators=10)
 
 RMSE_list = []
 MAPE_list = []
 
-for i in range(10):
+for i in progressbar(range(100)):
+    X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:, 1:-1], df_train.iloc[:, -1], test_size=0.25,
+                                                      shuffle=True)
+
     model.fit(X_train, Y_train)
     y_pred = model.predict(X_val)
     rmse = mean_squared_error(Y_val, y_pred, squared=False)
@@ -121,7 +166,5 @@ for i in range(10):
     RMSE_list.append(rmse)
     MAPE_list.append(mape)
 print('RMSE: ' + str(round(np.mean(RMSE_list),3)) + ' | MAPE: ' + str(round(np.mean(MAPE_list),3)))
-
-
 
 print("db")
