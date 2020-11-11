@@ -1,4 +1,6 @@
 import sns as sns
+import warnings
+warnings.filterwarnings('ignore')
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
@@ -83,81 +85,71 @@ df_test = pd.read_csv("test.csv")
 df_train = MultiColumnLabelEncoder(columns = ['MSSubClass','Alley','MSZoning','Street','LotShape','LandContour','Utilities','LotConfig','LandSlope','Neighborhood','Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st','Exterior2nd','MasVnrType','ExterQual','ExterCond','Foundation','BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinType2','Heating','HeatingQC','CentralAir','Electrical','KitchenQual','Functional','FireplaceQu','GarageType','GarageFinish','GarageQual','GarageCond','PavedDrive','Fence','MiscFeature','PoolQC','SaleType','SaleCondition']).fit_transform(df_train)
 df_test = MultiColumnLabelEncoder(columns = ['MSSubClass','Alley','MSZoning','Street','LotShape','LandContour','Utilities','LotConfig','LandSlope','Neighborhood','Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st','Exterior2nd','MasVnrType','ExterQual','ExterCond','Foundation','BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinType2','Heating','HeatingQC','CentralAir','Electrical','KitchenQual','Functional','FireplaceQu','GarageType','GarageFinish','GarageQual','GarageCond','PavedDrive','Fence','MiscFeature','PoolQC','SaleType','SaleCondition']).fit_transform(df_test)
 
+X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:, 1:-1], df_train.iloc[:, -1], test_size=0.25,
+                                                      shuffle=True)
+df_train = pd.concat([X_train , pd.DataFrame(Y_train)], axis=1)
+df_val = pd.concat([X_val, pd.DataFrame(Y_val)], axis=1)
+
 ####################### Outliers Removal Manually ############################
-# Deleting outliers
-df_train = df_train.drop(df_train[(df_train['GrLivArea'] > 4000) & (df_train['SalePrice'] < 300000)].index)
-df_train = df_train.drop(df_train[(df_train['LotFrontage'] > 250) & (df_train['SalePrice'] < 400000)].index)
-df_train = df_train.drop(df_train[(df_train['LotArea'] > 150000) & (df_train['SalePrice'] < 500000)].index)
-df_train = df_train.drop(df_train[(df_train['OverallCond'] == 6) & (df_train['SalePrice'] > 550000)].index)
-df_train = df_train.drop(df_train[(df_train['OverallCond'] == 2) & (df_train['SalePrice'] > 300000)].index)
-df_train = df_train.drop(df_train[(df_train['YearBuilt'] < 1920) & (df_train['SalePrice'] > 300000)].index)
-df_train = df_train.drop(df_train[(df_train['YearBuilt'] > 1990) & (df_train['SalePrice'] > 650000)].index)
-df_train = df_train.drop(df_train[(df_train['Exterior1st'] == 6) & (df_train['SalePrice'] > 500000)].index)
-df_train = df_train.drop(df_train[(df_train['MasVnrArea'] >1400) & (df_train['SalePrice'] > 200000)].index)
-df_train = df_train.drop(df_train[(df_train['BsmtFinType2'] == 0) & (df_train['SalePrice'] > 500000)].index)
-df_train = df_train.drop(df_train[(df_train['BsmtFinType1'] == 0) & (df_train['SalePrice'] > 500000)].index)
-df_train = df_train.drop(df_train[(df_train['EnclosedPorch'] > 500) & (df_train['SalePrice'] < 300000)].index)
+if True:
+    # Deleting outliers
+    df_train = df_train.drop(df_train[(df_train['GrLivArea'] > 4000) & (df_train['SalePrice'] < 300000)].index)
+    df_train = df_train.drop(df_train[(df_train['LotFrontage'] > 250) & (df_train['SalePrice'] < 400000)].index)
+    df_train = df_train.drop(df_train[(df_train['LotArea'] > 150000) & (df_train['SalePrice'] < 500000)].index)
+    df_train = df_train.drop(df_train[(df_train['OverallCond'] == 6) & (df_train['SalePrice'] > 550000)].index)
+    df_train = df_train.drop(df_train[(df_train['OverallCond'] == 2) & (df_train['SalePrice'] > 300000)].index)
+    df_train = df_train.drop(df_train[(df_train['YearBuilt'] < 1920) & (df_train['SalePrice'] > 300000)].index)
+    df_train = df_train.drop(df_train[(df_train['YearBuilt'] > 1990) & (df_train['SalePrice'] > 650000)].index)
+    df_train = df_train.drop(df_train[(df_train['Exterior1st'] == 6) & (df_train['SalePrice'] > 500000)].index)
+    df_train = df_train.drop(df_train[(df_train['MasVnrArea'] >1400) & (df_train['SalePrice'] > 200000)].index)
+    df_train = df_train.drop(df_train[(df_train['BsmtFinType2'] == 0) & (df_train['SalePrice'] > 500000)].index)
+    df_train = df_train.drop(df_train[(df_train['BsmtFinType1'] == 0) & (df_train['SalePrice'] > 500000)].index)
+    df_train = df_train.drop(df_train[(df_train['EnclosedPorch'] > 500) & (df_train['SalePrice'] < 300000)].index)
+    # ColumnsToCheck = list(df_train.columns)[50:-1]
+    # #ColumnsToCheck = ['GrLivArea']
+    # for col in ColumnsToCheck:
+    #     fig, ax = plt.subplots()
+    #     ax.scatter(x = df_train[col], y = df_train['SalePrice'])
+    #     plt.ylabel('SalePrice', fontsize=13)
+    #     plt.xlabel(col, fontsize=13)
+    #     plt.show()
+    #     print(str(col) + ' is clean!')
+    #     print(" ")
+###################### Log-transformation of the target variable #############################################
+if False:
+    # We use the numpy fuction log1p which  applies log(1+x) to all elements of the column
+    df_train["SalePrice"] = np.log1p(df_train["SalePrice"])
 
-# ColumnsToCheck = list(df_train.columns)[50:-1]
-# #ColumnsToCheck = ['GrLivArea']
-# for col in ColumnsToCheck:
-#     fig, ax = plt.subplots()
-#     ax.scatter(x = df_train[col], y = df_train['SalePrice'])
-#     plt.ylabel('SalePrice', fontsize=13)
-#     plt.xlabel(col, fontsize=13)
-#     plt.show()
-#     print(str(col) + ' is clean!')
-#     print(" ")
-################################# Log-transformation of the target variable #############################################
-sns.distplot(df_train['SalePrice'] , fit=norm);
+    # Check the new distribution
+    sns.distplot(df_train['SalePrice'], fit=norm);
 
-# Get the fitted parameters used by the function
-(mu, sigma) = norm.fit(df_train['SalePrice'])
-print( '\n mu = {:.2f} and sigma = {:.2f}\n'.format(mu, sigma))
+    # Get the fitted parameters used by the function
+    (mu, sigma) = norm.fit(df_train['SalePrice'])
+    print('\n mu = {:.2f} and sigma = {:.2f}\n'.format(mu, sigma))
 
-#Now plot the distribution
-plt.legend(['Normal dist. ($\mu=$ {:.2f} and $\sigma=$ {:.2f} )'.format(mu, sigma)],
-            loc='best')
-plt.ylabel('Frequency')
-plt.title('SalePrice distribution')
+    # Now plot the distribution
+    plt.legend(['Normal dist. ($\mu=$ {:.2f} and $\sigma=$ {:.2f} )'.format(mu, sigma)],
+               loc='best')
+    plt.ylabel('Frequency')
+    plt.title('SalePrice distribution')
 
-#Get also the QQ-plot
-fig = plt.figure()
-res = stats.probplot(df_train['SalePrice'], plot=plt)
-plt.show()
-
-#We use the numpy fuction log1p which  applies log(1+x) to all elements of the column
-df_train["SalePrice"] = np.log1p(df_train["SalePrice"])
-
-#Check the new distribution
-sns.distplot(df_train['SalePrice'] , fit=norm);
-
-# Get the fitted parameters used by the function
-(mu, sigma) = norm.fit(df_train['SalePrice'])
-print( '\n mu = {:.2f} and sigma = {:.2f}\n'.format(mu, sigma))
-
-#Now plot the distribution
-plt.legend(['Normal dist. ($\mu=$ {:.2f} and $\sigma=$ {:.2f} )'.format(mu, sigma)],
-            loc='best')
-plt.ylabel('Frequency')
-plt.title('SalePrice distribution')
-
-#Get also the QQ-plot
-fig = plt.figure()
-res = stats.probplot(df_train['SalePrice'], plot=plt)
-plt.show()
+    # Get also the QQ-plot
+    fig = plt.figure()
+    res = stats.probplot(df_train['SalePrice'], plot=plt)
+    # plt.show()
 
 
 
+
+X_train, Y_train = df_train.iloc[:,0:-1], df_train.iloc[:,-1]
+X_val, Y_val= df_val.iloc[:,0:-1], df_val.iloc[:,-1]
 best_model = lgb.LGBMRegressor(num_leaves=120, max_depth=40)
 model = BaggingRegressor(base_estimator=best_model, n_estimators=10)
 
 RMSE_list = []
 MAPE_list = []
 
-for i in progressbar(range(100)):
-    X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:, 1:-1], df_train.iloc[:, -1], test_size=0.25,
-                                                      shuffle=True)
+for i in progressbar(range(10)):
 
     model.fit(X_train, Y_train)
     y_pred = model.predict(X_val)
