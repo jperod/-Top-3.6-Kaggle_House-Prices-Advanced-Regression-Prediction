@@ -75,16 +75,45 @@ df_test = pd.read_csv("test.csv")
 df_train = MultiColumnLabelEncoder(columns = ['MSSubClass','Alley','MSZoning','Street','LotShape','LandContour','Utilities','LotConfig','LandSlope','Neighborhood','Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st','Exterior2nd','MasVnrType','ExterQual','ExterCond','Foundation','BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinType2','Heating','HeatingQC','CentralAir','Electrical','KitchenQual','Functional','FireplaceQu','GarageType','GarageFinish','GarageQual','GarageCond','PavedDrive','Fence','MiscFeature','PoolQC','SaleType','SaleCondition']).fit_transform(df_train)
 df_test = MultiColumnLabelEncoder(columns = ['MSSubClass','Alley','MSZoning','Street','LotShape','LandContour','Utilities','LotConfig','LandSlope','Neighborhood','Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st','Exterior2nd','MasVnrType','ExterQual','ExterCond','Foundation','BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinType2','Heating','HeatingQC','CentralAir','Electrical','KitchenQual','Functional','FireplaceQu','GarageType','GarageFinish','GarageQual','GarageCond','PavedDrive','Fence','MiscFeature','PoolQC','SaleType','SaleCondition']).fit_transform(df_test)
 
+####################### Outliers Removal Manually ############################
+# Deleting outliers
+df_train = df_train.drop(df_train[(df_train['GrLivArea'] > 4000) & (df_train['SalePrice'] < 300000)].index)
+df_train = df_train.drop(df_train[(df_train['LotFrontage'] > 250) & (df_train['SalePrice'] < 400000)].index)
+df_train = df_train.drop(df_train[(df_train['LotArea'] > 150000) & (df_train['SalePrice'] < 500000)].index)
+df_train = df_train.drop(df_train[(df_train['OverallCond'] == 6) & (df_train['SalePrice'] > 550000)].index)
+df_train = df_train.drop(df_train[(df_train['OverallCond'] == 2) & (df_train['SalePrice'] > 300000)].index)
+df_train = df_train.drop(df_train[(df_train['YearBuilt'] < 1920) & (df_train['SalePrice'] > 300000)].index)
+df_train = df_train.drop(df_train[(df_train['YearBuilt'] > 1990) & (df_train['SalePrice'] > 650000)].index)
+df_train = df_train.drop(df_train[(df_train['Exterior1st'] == 6) & (df_train['SalePrice'] > 500000)].index)
+df_train = df_train.drop(df_train[(df_train['MasVnrArea'] >1400) & (df_train['SalePrice'] > 200000)].index)
+df_train = df_train.drop(df_train[(df_train['BsmtFinType2'] == 0) & (df_train['SalePrice'] > 500000)].index)
+df_train = df_train.drop(df_train[(df_train['BsmtFinType1'] == 0) & (df_train['SalePrice'] > 500000)].index)
+df_train = df_train.drop(df_train[(df_train['EnclosedPorch'] > 500) & (df_train['SalePrice'] < 300000)].index)
+
+# ColumnsToCheck = list(df_train.columns)[50:-1]
+# #ColumnsToCheck = ['GrLivArea']
+# for col in ColumnsToCheck:
+#     fig, ax = plt.subplots()
+#     ax.scatter(x = df_train[col], y = df_train['SalePrice'])
+#     plt.ylabel('SalePrice', fontsize=13)
+#     plt.xlabel(col, fontsize=13)
+#     plt.show()
+#     print(str(col) + ' is clean!')
+#     print(" ")
+#######################################################################################################################################
+
+
+
 X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:,1:-1], df_train.iloc[:,-1], test_size=0.25, shuffle=True)
 
 
-best_model = lgb.LGBMRegressor(num_leaves=100, max_depth=40)
+best_model = lgb.LGBMRegressor(num_leaves=110, max_depth=40)
 model = BaggingRegressor(base_estimator=best_model, n_estimators=10)
 
 RMSE_list = []
 MAPE_list = []
 
-for i in range(5):
+for i in range(10):
     model.fit(X_train, Y_train)
     y_pred = model.predict(X_val)
     rmse = mean_squared_error(Y_val, y_pred, squared=False)
