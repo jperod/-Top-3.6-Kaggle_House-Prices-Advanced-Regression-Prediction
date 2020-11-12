@@ -175,11 +175,11 @@ model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=6, max_depth=6,
                               max_bin = 55, colsample_bytree=0.1,
                               feature_fraction_seed=9, verbose=-1)
 
-def TestModel(model, it, verbose):
+def TestModel(model, it, val_size,verbose):
     RMSE_list = []
     MAPE_list = []
     for i in range(it):
-        X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:, 1:-1], df_train.iloc[:, -1], test_size=0.25, shuffle=True)
+        X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:, 1:-1], df_train.iloc[:, -1], test_size=val_size, shuffle=True)
         ###################### Log-transformation of the target variable #############################################
         if True:
             # Remove Outliers
@@ -241,12 +241,14 @@ def TestModel(model, it, verbose):
     return round(np.mean(RMSE_list),3), round(np.mean(MAPE_list),3)
 
 #Tune LGB hyperparameters:
-num_leaves = [3,6,10,20]
-max_depth = [-1,3,7,10]
-learning_rate = [0.05, 0.1, 0.15]
-n_estimators = [100,500,720,1000]
-max_bin = [40,55,70]
-colsample_bytree = [0.05,0.1,0.2,0.9]
+#591/2304 | [6, -1, 0.05, 500, 40, 0.2, 20748.04, 7.8] | Best MAPE: 7.799
+
+num_leaves = [5,6,7]
+max_depth = [-1]
+learning_rate = [0.05, 0.07, 0.03]
+n_estimators = [400,500,600]
+max_bin = [30,40,50]
+colsample_bytree = [0.1,0.2,0.3]
 n_it = len(num_leaves)*len(max_depth)*len(learning_rate)*len(n_estimators)*len(max_bin)*len(colsample_bytree)
 HPO_Scores = np.zeros((n_it,8))
 
@@ -260,10 +262,11 @@ for nl in num_leaves:
                         RMSE, MAPE = TestModel(lgb.LGBMRegressor(objective='regression',num_leaves=nl, max_depth=md,
                               learning_rate=lr, n_estimators=ne,
                               max_bin = mb, colsample_bytree=cb,
-                              feature_fraction_seed=9, verbose=-1), 5, False)
+                              feature_fraction_seed=9, verbose=-1), 10, 0.2, False)
                         HPO_Scores[current_it,:] = np.array([nl,md,lr,ne,mb,cb,RMSE,MAPE])
                         current_it += 1
-                        print(str(current_it) + "/" + str(n_it))
+                        print(str(current_it) + "/" + str(n_it) + " | " + str([round(n,2) for n in [nl,md,lr,ne,mb,cb,RMSE,MAPE]])
+                              + " | Best MAPE: " + str(max(0,min(HPO_Scores[:,7][HPO_Scores[:,7] != 0]))))
 
 
 print("db")
