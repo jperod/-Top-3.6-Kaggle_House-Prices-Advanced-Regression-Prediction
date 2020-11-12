@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 import pandas as pd
+from scipy.special import boxcox1p
 from sklearn.linear_model import ElasticNet, Lasso,  BayesianRidge, LassoLarsIC
 from sklearn.ensemble import RandomForestRegressor,  GradientBoostingRegressor
 from sklearn.kernel_ridge import KernelRidge
@@ -169,45 +170,100 @@ model_xgb = xgb.XGBRegressor(colsample_bytree=0.4603, gamma=0.0468,
                              reg_alpha=0.4640, reg_lambda=0.8571,
                              subsample=0.5213, silent=1,
                              random_state =7, nthread = -1)
-model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=5,
-                              learning_rate=0.05, n_estimators=720,
-                              max_bin = 55, bagging_fraction = 0.8,
-                              bagging_freq = 5, feature_fraction = 0.2319,
-                              feature_fraction_seed=9, bagging_seed=9,
-                              min_data_in_leaf =6, min_sum_hessian_in_leaf = 11)
-RMSE_list = []
-MAPE_list = []
+model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=6, max_depth=6,
+                              learning_rate=0.1, n_estimators=600,
+                              max_bin = 55, colsample_bytree=0.1,
+                              feature_fraction_seed=9, verbose=-1)
 
-# X_train, Y_train = df_train.iloc[:,0:-1], df_train.iloc[:,-1]
+def TestModel(model, it, verbose):
+    RMSE_list = []
+    MAPE_list = []
+    for i in range(it):
+        X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:, 1:-1], df_train.iloc[:, -1], test_size=0.25, shuffle=True)
+        ###################### Log-transformation of the target variable #############################################
+        if True:
+            # Remove Outliers
+            all_train = pd.concat([X_train,Y_train],axis=1)
+            all_train = all_train.drop(all_train[(all_train['GrLivArea'] > 4000) & (all_train['SalePrice'] < 300000)].index)
+            all_train = all_train.drop(all_train[(all_train['LotFrontage'] > 250) & (all_train['SalePrice'] < 400000)].index)
+            all_train = all_train.drop(all_train[(all_train['LotArea'] > 150000) & (all_train['SalePrice'] < 500000)].index)
+            all_train = all_train.drop(all_train[(all_train['OverallCond'] == 6) & (all_train['SalePrice'] > 550000)].index)
+            all_train = all_train.drop(all_train[(all_train['OverallCond'] == 2) & (all_train['SalePrice'] > 300000)].index)
+            all_train = all_train.drop(all_train[(all_train['YearBuilt'] < 1920) & (all_train['SalePrice'] > 300000)].index)
+            all_train = all_train.drop(all_train[(all_train['YearBuilt'] > 1990) & (all_train['SalePrice'] > 650000)].index)
+            all_train = all_train.drop(all_train[(all_train['Exterior1st'] == 6) & (all_train['SalePrice'] > 500000)].index)
+            all_train = all_train.drop(all_train[(all_train['MasVnrArea'] > 1400) & (all_train['SalePrice'] > 200000)].index)
+            all_train = all_train.drop(all_train[(all_train['BsmtFinType2'] == 0) & (all_train['SalePrice'] > 500000)].index)
+            all_train = all_train.drop(all_train[(all_train['BsmtFinType1'] == 0) & (all_train['SalePrice'] > 500000)].index)
+            all_train = all_train.drop(all_train[(all_train['EnclosedPorch'] > 500) & (all_train['SalePrice'] < 300000)].index)
+            X_train = all_train.iloc[:,0:-1]; Y_train = all_train.iloc[:,-1];
+            # We use the numpy fuction log1p which  applies log(1+x) to all elements of the column
+            Y_train = np.log1p(Y_train)
+            ###################### Adding total sqfootage feature | Skewed features ###################################
+            # Adding total sqfootage feature
+            X_train['TotalSF'] = X_train['TotalBsmtSF'] + X_train['1stFlrSF'] + X_train['2ndFlrSF']
+            X_val['TotalSF'] = X_val['TotalBsmtSF'] + X_val['1stFlrSF'] + X_val['2ndFlrSF']
+            # More Transformation
+            if False:
+                numeric_feats_train = X_train.dtypes[X_train.dtypes != "object"].index
+                numeric_feats_val = X_val.dtypes[X_val.dtypes != "object"].index
 
-for i in progressbar(range(10)):
-    X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:, 1:-1], df_train.iloc[:, -1], test_size=0.25, shuffle=True)
-    ###################### Log-transformation of the target variable #############################################
-    if True:
-        # Remove Outliers
-        all_train = pd.concat([X_train,Y_train],axis=1)
-        all_train = all_train.drop(all_train[(all_train['GrLivArea'] > 4000) & (all_train['SalePrice'] < 300000)].index)
-        all_train = all_train.drop(all_train[(all_train['LotFrontage'] > 250) & (all_train['SalePrice'] < 400000)].index)
-        all_train = all_train.drop(all_train[(all_train['LotArea'] > 150000) & (all_train['SalePrice'] < 500000)].index)
-        all_train = all_train.drop(all_train[(all_train['OverallCond'] == 6) & (all_train['SalePrice'] > 550000)].index)
-        all_train = all_train.drop(all_train[(all_train['OverallCond'] == 2) & (all_train['SalePrice'] > 300000)].index)
-        all_train = all_train.drop(all_train[(all_train['YearBuilt'] < 1920) & (all_train['SalePrice'] > 300000)].index)
-        all_train = all_train.drop(all_train[(all_train['YearBuilt'] > 1990) & (all_train['SalePrice'] > 650000)].index)
-        all_train = all_train.drop(all_train[(all_train['Exterior1st'] == 6) & (all_train['SalePrice'] > 500000)].index)
-        all_train = all_train.drop(all_train[(all_train['MasVnrArea'] > 1400) & (all_train['SalePrice'] > 200000)].index)
-        all_train = all_train.drop(all_train[(all_train['BsmtFinType2'] == 0) & (all_train['SalePrice'] > 500000)].index)
-        all_train = all_train.drop(all_train[(all_train['BsmtFinType1'] == 0) & (all_train['SalePrice'] > 500000)].index)
-        all_train = all_train.drop(all_train[(all_train['EnclosedPorch'] > 500) & (all_train['SalePrice'] < 300000)].index)
-        # We use the numpy fuction log1p which  applies log(1+x) to all elements of the column
-        Y_train = np.log1p(Y_train)
+                # Check the skew of all numerical features
+                skewed_feats_train = X_train[numeric_feats_train].apply(lambda x: skew(x.dropna())).sort_values(
+                    ascending=False)
+                skewed_feats_val = X_val[numeric_feats_val].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
+                # print("\nSkew in numerical features: \n")
+                skewness_train = pd.DataFrame({'Skew': skewed_feats_train})
+                skewness_train = skewness_train[abs(skewness_train) > 0.75]
+                skewness_val = pd.DataFrame({'Skew': skewed_feats_val})
+                skewness_val = skewness_val[abs(skewness_val) > 0.75]
 
+                skewed_features_train = skewness_train.index
+                skewed_features_val = skewness_val.index
 
-    model_lgb.fit(X_train, Y_train)
-    y_pred = np.expm1(model_lgb.predict(X_val))
-    rmse = mean_squared_error(Y_val, y_pred, squared=False)
-    mape = mean_absolute_percentage_error(Y_val, y_pred)
-    RMSE_list.append(rmse)
-    MAPE_list.append(mape)
-print('RMSE: ' + str(round(np.mean(RMSE_list),3)) + ' | MAPE: ' + str(round(np.mean(MAPE_list),3)))
+                lam = 0.15
+                for feat in skewed_features_train:
+                    # all_data[feat] += 1
+                    X_train[feat] = boxcox1p(X_train[feat], lam)
+                for feat in skewed_features_val:
+                    # all_data[feat] += 1
+                    X_val[feat] = boxcox1p(X_val[feat], lam)
+
+        model.fit(X_train, Y_train)
+        y_pred = np.expm1(model.predict(X_val))
+        rmse = mean_squared_error(Y_val, y_pred, squared=False)
+        mape = mean_absolute_percentage_error(Y_val, y_pred)
+        RMSE_list.append(rmse)
+        MAPE_list.append(mape)
+
+    if verbose:
+        print('RMSE: ' + str(round(np.mean(RMSE_list),3)) + ' | MAPE: ' + str(round(np.mean(MAPE_list),3)))
+    return round(np.mean(RMSE_list),3), round(np.mean(MAPE_list),3)
+
+#Tune LGB hyperparameters:
+num_leaves = [3,6,10,20]
+max_depth = [-1,3,7,10]
+learning_rate = [0.05, 0.1, 0.15]
+n_estimators = [100,500,720,1000]
+max_bin = [40,55,70]
+colsample_bytree = [0.05,0.1,0.2,0.9]
+n_it = len(num_leaves)*len(max_depth)*len(learning_rate)*len(n_estimators)*len(max_bin)*len(colsample_bytree)
+HPO_Scores = np.zeros((n_it,8))
+
+current_it=0
+for nl in num_leaves:
+    for md in max_depth:
+        for lr in learning_rate:
+            for ne in n_estimators:
+                for mb in max_bin:
+                    for cb in colsample_bytree:
+                        RMSE, MAPE = TestModel(lgb.LGBMRegressor(objective='regression',num_leaves=nl, max_depth=md,
+                              learning_rate=lr, n_estimators=ne,
+                              max_bin = mb, colsample_bytree=cb,
+                              feature_fraction_seed=9, verbose=-1), 5, False)
+                        HPO_Scores[current_it,:] = np.array([nl,md,lr,ne,mb,cb,RMSE,MAPE])
+                        current_it += 1
+                        print(str(current_it) + "/" + str(n_it))
+
 
 print("db")
