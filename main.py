@@ -170,9 +170,9 @@ model_xgb = xgb.XGBRegressor(colsample_bytree=0.4603, gamma=0.0468,
                              reg_alpha=0.4640, reg_lambda=0.8571,
                              subsample=0.5213, silent=1,
                              random_state =7, nthread = -1)
-model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=6, max_depth=6,
-                              learning_rate=0.1, n_estimators=600,
-                              max_bin = 55, colsample_bytree=0.1,
+model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=5, max_depth=-1,
+                              learning_rate=0.05, n_estimators=720,
+                              max_bin = 40, colsample_bytree=0.3,
                               feature_fraction_seed=9, verbose=-1)
 
 def TestModel(model, it, val_size,verbose):
@@ -240,33 +240,77 @@ def TestModel(model, it, val_size,verbose):
         print('RMSE: ' + str(round(np.mean(RMSE_list),3)) + ' | MAPE: ' + str(round(np.mean(MAPE_list),3)))
     return round(np.mean(RMSE_list),3), round(np.mean(MAPE_list),3)
 
-#Tune LGB hyperparameters:
-#591/2304 | [6, -1, 0.05, 500, 40, 0.2, 20748.04, 7.8] | Best MAPE: 7.799
+#HPO Optimization
+def TuneLGB():
+    #Tune XGB hyperparameters:
+    #28/48 | [5, -1, 0.05, 720, 40, 0.3, 19284.39, 7.96] | Best RMSE: 19284 => MAPE: 7.959
 
-num_leaves = [5,6,7]
-max_depth = [-1]
-learning_rate = [0.05, 0.07, 0.03]
-n_estimators = [400,500,600]
-max_bin = [30,40,50]
-colsample_bytree = [0.1,0.2,0.3]
-n_it = len(num_leaves)*len(max_depth)*len(learning_rate)*len(n_estimators)*len(max_bin)*len(colsample_bytree)
-HPO_Scores = np.zeros((n_it,8))
+    num_leaves = [5,6]
+    max_depth = [-1]
+    learning_rate = [0.05]
+    n_estimators = [700,750,800]
+    max_bin = [40]
+    colsample_bytree = [0.2,0.3,0.4,0.5]
+    n_it = len(num_leaves)*len(max_depth)*len(learning_rate)*len(n_estimators)*len(max_bin)*len(colsample_bytree)
 
-current_it=0
-for nl in num_leaves:
-    for md in max_depth:
-        for lr in learning_rate:
-            for ne in n_estimators:
-                for mb in max_bin:
-                    for cb in colsample_bytree:
-                        RMSE, MAPE = TestModel(lgb.LGBMRegressor(objective='regression',num_leaves=nl, max_depth=md,
-                              learning_rate=lr, n_estimators=ne,
-                              max_bin = mb, colsample_bytree=cb,
-                              feature_fraction_seed=9, verbose=-1), 10, 0.2, False)
-                        HPO_Scores[current_it,:] = np.array([nl,md,lr,ne,mb,cb,RMSE,MAPE])
-                        current_it += 1
-                        print(str(current_it) + "/" + str(n_it) + " | " + str([round(n,2) for n in [nl,md,lr,ne,mb,cb,RMSE,MAPE]])
-                              + " | Best MAPE: " + str(max(0,min(HPO_Scores[:,7][HPO_Scores[:,7] != 0]))))
+    HPO_Scores = np.zeros((n_it,8))
+    current_it=0
+    for nl in num_leaves:
+        for md in max_depth:
+            for lr in learning_rate:
+                for ne in n_estimators:
+                    for mb in max_bin:
+                        for cb in colsample_bytree:
+                            RMSE, MAPE = TestModel(lgb.LGBMRegressor(objective='regression',num_leaves=nl, max_depth=md,
+                                  learning_rate=lr, n_estimators=ne,
+                                  max_bin = mb, colsample_bytree=cb,
+                                  feature_fraction_seed=9, verbose=-1), 10, 0.2, False)
+                            HPO_Scores[current_it,:] = np.array([nl,md,lr,ne,mb,cb,RMSE,MAPE])
+                            current_it += 1
+                            rmse_min = min(HPO_Scores[:,6][HPO_Scores[:,6] != 0])
+                            print(str(current_it) + "/" + str(n_it) + " | " + str([round(n,2) for n in [nl,md,lr,ne,mb,cb,RMSE,MAPE]])
+                                  + " | Best RMSE: " + str(int(rmse_min)) + " => MAPE: " + str(round(HPO_Scores[HPO_Scores[:,6] == rmse_min][:,7][0],3)) )
+def TuneXGB():
+    # Tune XGB hyperparameters:
+    #
 
+    colsample_bytree = [0.35, 0.45, 0.55]
+    gamma = [0.01,0.05, 0.1]
+    max_depth = [3,5,7]
+    min_child_weight = [1,1.8, 3]
+    n_estimators = [1000, 2200, 3000]
+    reg_alpha = [0.2, 0.5, 1]
+    reg_lambda = [0.5, 0.85, 1]
+    subsample = [0.5, 0.8, 0.25]
 
-print("db")
+    n_it = len(colsample_bytree) * len(gamma) * len(max_depth) * len(min_child_weight) * len(n_estimators) * len(
+        reg_alpha)*len(reg_lambda)*len(subsample)
+
+    HPO_Scores = np.zeros((n_it, 10))
+    current_it = 0
+    for cb in colsample_bytree:
+        for g in gamma:
+            for md in max_depth:
+                for mcw in min_child_weight:
+                    for ne in n_estimators:
+                        for ra in reg_alpha:
+                                for rl in reg_lambda:
+                                    for s in subsample:
+                                        RMSE, MAPE = TestModel(
+                                            xgb.XGBRegressor(colsample_bytree=cb, gamma=g,
+                                                             learning_rate=0.05, max_depth=md,
+                                                             min_child_weight=mcw, n_estimators=ne,
+                                                             reg_alpha=ra, reg_lambda=rl,
+                                                             subsample=s,
+                                                             random_state=7, nthread=-1), 4, 0.2, False)
+                                        HPO_Scores[current_it, :] = np.array([cb, g, md, mcw, ne, ra, rl, s, RMSE, MAPE])
+                                        current_it += 1
+                                        rmse_min = min(HPO_Scores[:, -2][HPO_Scores[:, -2] != 0])
+                                        print(str(current_it) + "/" + str(n_it) + " | " + str(
+                                            [round(n, 2) for n in [cb, g, md, mcw, ne, ra, rl, s, RMSE, MAPE]])
+                                              + " | Best RMSE: " + str(int(rmse_min)) + " => MAPE: " + str(
+                                            round(HPO_Scores[HPO_Scores[:, -2] == rmse_min][:, -1][0], 3)))
+
+TuneXGB()
+
+print("END")
