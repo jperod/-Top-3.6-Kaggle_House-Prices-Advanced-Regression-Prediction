@@ -170,6 +170,7 @@ model_xgb = xgb.XGBRegressor(colsample_bytree=0.4603, gamma=0.0468,
                              reg_alpha=0.4640, reg_lambda=0.8571,
                              subsample=0.5213, silent=1,
                              random_state =7, nthread = -1)
+# Tuned LGB Model
 model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=5, max_depth=-1,
                               learning_rate=0.05, n_estimators=720,
                               max_bin = 40, colsample_bytree=0.3,
@@ -272,16 +273,16 @@ def TuneLGB():
                                   + " | Best RMSE: " + str(int(rmse_min)) + " => MAPE: " + str(round(HPO_Scores[HPO_Scores[:,6] == rmse_min][:,7][0],3)) )
 def TuneXGB():
     # Tune XGB hyperparameters:
-    #
+    #220/6561 | [0.35, 0.01, 3, 3, 3000, 0.2, 0.85, 0.5, 17906.88, 7.79] | Best RMSE: 17906 => MAPE: 7.789
 
-    colsample_bytree = [0.35, 0.45, 0.55]
-    gamma = [0.01,0.05, 0.1]
-    max_depth = [3,5,7]
-    min_child_weight = [1,1.8, 3]
-    n_estimators = [1000, 2200, 3000]
-    reg_alpha = [0.2, 0.5, 1]
-    reg_lambda = [0.5, 0.85, 1]
-    subsample = [0.5, 0.8, 0.25]
+    colsample_bytree = [0.2, 0.35, 0.5]
+    gamma = [0.01,0.05]
+    max_depth = [2,3,4]
+    min_child_weight = [2, 3, 4]
+    n_estimators = [2200, 3000, 4000]
+    reg_alpha = [0.1, 0.2, 0.3]
+    reg_lambda = [0.7, 0.85, 95]
+    subsample = [0.3, 0.5, 0.6]
 
     n_it = len(colsample_bytree) * len(gamma) * len(max_depth) * len(min_child_weight) * len(n_estimators) * len(
         reg_alpha)*len(reg_lambda)*len(subsample)
