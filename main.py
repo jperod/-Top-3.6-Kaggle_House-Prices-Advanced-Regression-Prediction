@@ -1,7 +1,7 @@
 import warnings
 warnings.filterwarnings("ignore")
 from sklearn.linear_model import ElasticNet, Lasso
-from sklearn.ensemble import GradientBoostingRegressor, StackingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, StackingRegressor, BaggingRegressor
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.preprocessing import RobustScaler
 import xgboost as xgb
@@ -106,7 +106,7 @@ def TestModel(model, it, val_size,verbose):
                     # all_data[feat] += 1
                     X_val[feat] = boxcox1p(X_val[feat], lam)
             # Remove NAN
-            if True:
+            if False:
                 X_train = X_train.fillna(-1)
                 X_val = X_val.fillna(-1)
 
@@ -346,7 +346,9 @@ estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb'
 stackmodel_1 = StackingRegressor(estimators=[('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),
                                              ('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
 stackmodel_2 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
-stackmodel_3 = StackingRegressor(estimators=[('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR)],final_estimator=model_lgb)
+baggingmodel_1 = BaggingRegressor(base_estimator= model_lgb, n_estimators=10)
+stackmodel_3 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lgb)],final_estimator=baggingmodel_1)
+
 
 TestModel(stackmodel_3, 20, 0.20,True)
 #GBoost => RMSLE: 0.015 | MAPE: 8.398
@@ -356,8 +358,8 @@ TestModel(stackmodel_3, 20, 0.20,True)
 #model_lgb => RMSE: 0.013 | MAPE: 8.02
 #stackmodel_1 => RMSE: 0.015 | MAPE: 8.527
 #stackmodel_2 => RMSE: 0.014 | MAPE: 8.418
-#stackmodel_3 => 
-
+#baggingmodel_1 => 0.013 | MAPE: 8.018
+#stackmodel_3 =>
 
 
 
