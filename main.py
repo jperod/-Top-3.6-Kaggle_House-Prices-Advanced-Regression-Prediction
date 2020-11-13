@@ -178,6 +178,8 @@ def MakePrediction(model):
     X_test = df_test.iloc[:,1:]
     model.fit(X_train, Y_train)
     y_pred = np.expm1(model.predict(X_test))
+    # y_pred = model.predict(X_test)
+
     submission = pd.concat([df_test.iloc[:,0],pd.DataFrame(y_pred, columns=['SalePrice'])],axis=1)
 
     return submission
@@ -350,7 +352,7 @@ baggingmodel_1 = BaggingRegressor(base_estimator= model_lgb, n_estimators=10)
 stackmodel_3 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lgb)],final_estimator=baggingmodel_1)
 
 
-TestModel(stackmodel_3, 20, 0.20,True)
+# TestModel(stackmodel_3, 20, 0.20,True)
 #GBoost => RMSLE: 0.015 | MAPE: 8.398
 #lasso => RMSE: 0.014 | MAPE: 8.678
 #ENet => RMSE: 0.015 | MAPE: 8.591
@@ -359,14 +361,14 @@ TestModel(stackmodel_3, 20, 0.20,True)
 #stackmodel_1 => RMSE: 0.015 | MAPE: 8.527
 #stackmodel_2 => RMSE: 0.014 | MAPE: 8.418
 #baggingmodel_1 => 0.013 | MAPE: 8.018
-#stackmodel_3 =>
+#stackmodel_3 => RMSE: 0.015 | MAPE: 8.661
 
 
 
 
 
-# submission = MakePrediction(model_lgb)
-# submission.to_csv("submission2.csv", index=False)
+submission = MakePrediction(baggingmodel_1)
+submission.to_csv("submission3.csv", index=False)
 #
 #1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
 # stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_lgb)
