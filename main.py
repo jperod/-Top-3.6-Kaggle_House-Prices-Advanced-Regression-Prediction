@@ -120,6 +120,67 @@ def TestModel(model, it, val_size,verbose):
     if verbose:
         print('RMSE: ' + str(round(np.mean(RMSE_list),3)) + ' | MAPE: ' + str(round(np.mean(MAPE_list),3)))
     return round(np.mean(RMSE_list),3), round(np.mean(MAPE_list),3)
+def MakePrediction(model):
+    if False:
+        # Remove Outliers
+        all_train = pd.concat([X_train,Y_train],axis=1)
+        all_train = all_train.drop(all_train[(all_train['GrLivArea'] > 4000) & (all_train['SalePrice'] < 300000)].index)
+        all_train = all_train.drop(all_train[(all_train['LotFrontage'] > 250) & (all_train['SalePrice'] < 400000)].index)
+        all_train = all_train.drop(all_train[(all_train['LotArea'] > 150000) & (all_train['SalePrice'] < 500000)].index)
+        all_train = all_train.drop(all_train[(all_train['OverallCond'] == 6) & (all_train['SalePrice'] > 550000)].index)
+        all_train = all_train.drop(all_train[(all_train['OverallCond'] == 2) & (all_train['SalePrice'] > 300000)].index)
+        all_train = all_train.drop(all_train[(all_train['YearBuilt'] < 1920) & (all_train['SalePrice'] > 300000)].index)
+        all_train = all_train.drop(all_train[(all_train['YearBuilt'] > 1990) & (all_train['SalePrice'] > 650000)].index)
+        all_train = all_train.drop(all_train[(all_train['Exterior1st'] == 6) & (all_train['SalePrice'] > 500000)].index)
+        all_train = all_train.drop(all_train[(all_train['MasVnrArea'] > 1400) & (all_train['SalePrice'] > 200000)].index)
+        all_train = all_train.drop(all_train[(all_train['BsmtFinType2'] == 0) & (all_train['SalePrice'] > 500000)].index)
+        all_train = all_train.drop(all_train[(all_train['BsmtFinType1'] == 0) & (all_train['SalePrice'] > 500000)].index)
+        all_train = all_train.drop(all_train[(all_train['EnclosedPorch'] > 500) & (all_train['SalePrice'] < 300000)].index)
+        X_train = all_train.iloc[:,0:-1]; Y_train = all_train.iloc[:,-1];
+        # We use the numpy fuction log1p which  applies log(1+x) to all elements of the column
+        Y_train = np.log1p(Y_train)
+        ###################### Adding total sqfootage feature | Skewed features ###################################
+        # Adding total sqfootage feature
+        X_train['TotalSF'] = X_train['TotalBsmtSF'] + X_train['1stFlrSF'] + X_train['2ndFlrSF']
+        X_val['TotalSF'] = X_val['TotalBsmtSF'] + X_val['1stFlrSF'] + X_val['2ndFlrSF']
+        # More Transformation
+        if False:
+            numeric_feats_train = X_train.dtypes[X_train.dtypes != "object"].index
+            numeric_feats_val = X_val.dtypes[X_val.dtypes != "object"].index
+
+            # Check the skew of all numerical features
+            skewed_feats_train = X_train[numeric_feats_train].apply(lambda x: skew(x.dropna())).sort_values(
+                ascending=False)
+            skewed_feats_val = X_val[numeric_feats_val].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
+            # print("\nSkew in numerical features: \n")
+            skewness_train = pd.DataFrame({'Skew': skewed_feats_train})
+            skewness_train = skewness_train[abs(skewness_train) > 0.75]
+            skewness_val = pd.DataFrame({'Skew': skewed_feats_val})
+            skewness_val = skewness_val[abs(skewness_val) > 0.75]
+
+            skewed_features_train = skewness_train.index
+            skewed_features_val = skewness_val.index
+
+            lam = 0.15
+            for feat in skewed_features_train:
+                # all_data[feat] += 1
+                X_train[feat] = boxcox1p(X_train[feat], lam)
+            for feat in skewed_features_val:
+                # all_data[feat] += 1
+                X_val[feat] = boxcox1p(X_val[feat], lam)
+        # Remove NAN
+        if False:
+            X_train = X_train.fillna(-999)
+            X_val = X_val.fillna(-999)
+
+    X_train, Y_train = df_train.iloc[:,1:-1],df_train.iloc[:,-1]
+    Y_train = np.log1p(Y_train)
+    X_test = df_test.iloc[:,1:]
+    model.fit(X_train, Y_train)
+    y_pred = np.expm1(model.predict(X_test))
+    submission = pd.concat([df_test.iloc[:,0],pd.DataFrame(y_pred, columns=['SalePrice'])],axis=1)
+
+    return submission
 #HPO Optimization
 def TuneLGB():
     #Tune XGB hyperparameters:
@@ -285,7 +346,10 @@ estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb'
 
 stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_xgb)
 
-TestModel(model_lgb, 20, 0.20,True)
+# TestModel(model_lgb, 20, 0.20,True)
+submission = MakePrediction(model_lgb)
+submission.to_csv("submission1.csv", index=False)
+
 #1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
 # stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_lgb)
 # RMSE: 21651.245 | MAPE: 8.206
