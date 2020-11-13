@@ -274,15 +274,16 @@ def TuneLGB():
 def TuneXGB():
     # Tune XGB hyperparameters:
     #220/6561 | [0.35, 0.01, 3, 3, 3000, 0.2, 0.85, 0.5, 17906.88, 7.79] | Best RMSE: 17906 => MAPE: 7.789
+    #249/4374 | [0.2, 0.01, 3, 2, 2200, 0.1, 0.85, 0.6, 17805.29, 7.36] | Best RMSE: 17805 => MAPE: 7.356
 
-    colsample_bytree = [0.2, 0.35, 0.5]
+    colsample_bytree = [0.1, 0.2]
     gamma = [0.01,0.05]
-    max_depth = [2,3,4]
-    min_child_weight = [2, 3, 4]
-    n_estimators = [2200, 3000, 4000]
-    reg_alpha = [0.1, 0.2, 0.3]
-    reg_lambda = [0.7, 0.85, 95]
-    subsample = [0.3, 0.5, 0.6]
+    max_depth = [3]
+    min_child_weight = [1.5, 2]
+    n_estimators = [1500,2200]
+    reg_alpha = [0.05, 0.1, 0.2]
+    reg_lambda = [0.85]
+    subsample = [0.5, 0.6, 0.7]
 
     n_it = len(colsample_bytree) * len(gamma) * len(max_depth) * len(min_child_weight) * len(n_estimators) * len(
         reg_alpha)*len(reg_lambda)*len(subsample)
@@ -303,7 +304,7 @@ def TuneXGB():
                                                              min_child_weight=mcw, n_estimators=ne,
                                                              reg_alpha=ra, reg_lambda=rl,
                                                              subsample=s,
-                                                             random_state=7, nthread=-1), 4, 0.2, False)
+                                                             random_state=7, nthread=-1), 5, 0.2, False)
                                         HPO_Scores[current_it, :] = np.array([cb, g, md, mcw, ne, ra, rl, s, RMSE, MAPE])
                                         current_it += 1
                                         rmse_min = min(HPO_Scores[:, -2][HPO_Scores[:, -2] != 0])
