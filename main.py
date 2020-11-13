@@ -345,14 +345,20 @@ model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=5, max_depth=-1,
 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
 stackmodel_1 = StackingRegressor(estimators=[('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),
                                              ('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
-
-TestModel(stackmodel_1, 20, 0.20,True)
+stackmodel_2 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
+TestModel(stackmodel_2, 20, 0.20,True)
 #GBoost => RMSLE: 0.015 | MAPE: 8.398
 #lasso => RMSE: 0.014 | MAPE: 8.678
 #ENet => RMSE: 0.015 | MAPE: 8.591
 #model_xgb => RMSE: 0.013 | MAPE: 8.015
 #model_lgb => RMSE: 0.013 | MAPE: 8.02
-#stackmodel_1 =>
+#stackmodel_1 => RMSE: 0.015 | MAPE: 8.527
+#stackmodel_2 => 
+
+
+
+
+
 
 
 # submission = MakePrediction(model_lgb)
