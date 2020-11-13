@@ -176,9 +176,13 @@ def MakePrediction(model):
     X_train, Y_train = df_train.iloc[:,1:-1],df_train.iloc[:,-1]
     Y_train = np.log1p(Y_train)
     X_test = df_test.iloc[:,1:]
+
+    X_train['TotalSF'] = X_train['TotalBsmtSF'] + X_train['1stFlrSF'] + X_train['2ndFlrSF']
+    X_test['TotalSF'] = X_test['TotalBsmtSF'] + X_test['1stFlrSF'] + X_test['2ndFlrSF']
+
     model.fit(X_train, Y_train)
-    y_pred = np.expm1(model.predict(X_test))
     # y_pred = model.predict(X_test)
+    y_pred = np.expm1(model.predict(X_test))
 
     submission = pd.concat([df_test.iloc[:,0],pd.DataFrame(y_pred, columns=['SalePrice'])],axis=1)
 
@@ -294,36 +298,6 @@ if True:
     #     print(str(col) + ' is clean!')
     #     print(" ")
 
-###################### Adding total sqfootage feature | Skewed features ###################################
-if False:
-    # Adding total sqfootage feature
-    df_train['TotalSF'] = df_train['TotalBsmtSF'] + df_train['1stFlrSF'] + df_train['2ndFlrSF']
-    df_test['TotalSF'] = df_test['TotalBsmtSF'] + df_test['1stFlrSF'] + df_test['2ndFlrSF']
-    numeric_feats_train = df_train.dtypes[df_train.dtypes != "object"].index
-    numeric_feats_val = df_test.dtypes[df_test.dtypes != "object"].index
-
-    # Check the skew of all numerical features
-    skewed_feats_train = df_train[numeric_feats_train].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
-    skewed_feats_val = df_test[numeric_feats_val].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
-    print("\nSkew in numerical features: \n")
-    skewness_train = pd.DataFrame({'Skew' :skewed_feats_train})
-    skewness_train = skewness_train[abs(skewness_train) > 0.75]
-    skewness_val= pd.DataFrame({'Skew' :skewed_feats_val})
-    skewness_val = skewness_val[abs(skewness_val) > 0.75]
-
-    from scipy.special import boxcox1p
-
-    skewed_features_train = skewness_train.index
-    skewed_features_val = skewness_val.index
-
-    lam = 0.15
-    for feat in skewed_features_train:
-        # all_data[feat] += 1
-        df_train[feat] = boxcox1p(df_train[feat], lam)
-    for feat in skewed_features_val:
-        # all_data[feat] += 1
-        df_test[feat] = boxcox1p(df_test[feat], lam)
-
 lasso = make_pipeline(RobustScaler(), Lasso(alpha =0.0005, random_state=1))
 ENet = make_pipeline(RobustScaler(), ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3))
 KRR = KernelRidge(alpha=0.6, kernel='polynomial', degree=2, coef0=2.5)
@@ -350,7 +324,7 @@ stackmodel_1 = StackingRegressor(estimators=[('GBoost',GBoost),('lasso',lasso),(
 stackmodel_2 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
 baggingmodel_1 = BaggingRegressor(base_estimator= model_lgb, n_estimators=10)
 stackmodel_3 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lgb)],final_estimator=baggingmodel_1)
-
+baggingmodel_2 = BaggingRegressor(base_estimator= model_xgb, n_estimators=10)
 
 # TestModel(stackmodel_3, 20, 0.20,True)
 #GBoost => RMSLE: 0.015 | MAPE: 8.398
@@ -363,12 +337,11 @@ stackmodel_3 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lg
 #baggingmodel_1 => 0.013 | MAPE: 8.018
 #stackmodel_3 => RMSE: 0.015 | MAPE: 8.661
 
-
-
-
-
 submission = MakePrediction(baggingmodel_1)
-submission.to_csv("submission3.csv", index=False)
+submission2 = MakePrediction(baggingmodel_2)
+submission["SalePrice"] = pd.concat([submission["SalePrice"],submission2["SalePrice"]], axis=1).mean(axis=1)
+
+submission.to_csv("submission4.csv", index=False)
 #
 #1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
 # stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_lgb)
