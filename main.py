@@ -106,9 +106,9 @@ def TestModel(model, it, val_size,verbose):
                     # all_data[feat] += 1
                     X_val[feat] = boxcox1p(X_val[feat], lam)
             # Remove NAN
-            if False:
-                X_train = X_train.fillna(-999)
-                X_val = X_val.fillna(-999)
+            if True:
+                X_train = X_train.fillna(-1)
+                X_val = X_val.fillna(-1)
 
         model.fit(X_train, Y_train)
         y_pred = np.expm1(model.predict(X_val))
@@ -343,12 +343,20 @@ model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=5, max_depth=-1,
 
 # estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
+stackmodel_1 = StackingRegressor(estimators=[('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),
+                                             ('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
 
-stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_xgb)
+TestModel(stackmodel_1, 20, 0.20,True)
+#GBoost => RMSLE: 0.015 | MAPE: 8.398
+#lasso => RMSE: 0.014 | MAPE: 8.678
+#ENet => RMSE: 0.015 | MAPE: 8.591
+#model_xgb => RMSE: 0.013 | MAPE: 8.015
+#model_lgb => RMSE: 0.013 | MAPE: 8.02
+#stackmodel_1 =>
 
-# TestModel(model_lgb, 20, 0.20,True)
-submission = MakePrediction(model_lgb)
-submission.to_csv("submission1.csv", index=False)
+
+# submission = MakePrediction(model_lgb)
+# submission.to_csv("submission2.csv", index=False)
 #
 #1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
 # stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_lgb)
