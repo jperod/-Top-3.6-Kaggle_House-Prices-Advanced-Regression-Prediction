@@ -1,10 +1,11 @@
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore")
 from sklearn.linear_model import ElasticNet, Lasso
 from sklearn.ensemble import GradientBoostingRegressor, StackingRegressor
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.preprocessing import RobustScaler
 import xgboost as xgb
+import matplotlib.pyplot as plt
 from scipy.stats import skew #for some statistics
 import seaborn as sns
 color = sns.color_palette()
@@ -50,6 +51,7 @@ class MultiColumnLabelEncoder:
 
     def fit_transform(self,X,y=None):
         return self.fit(X,y).transform(X)
+
 def TestModel(model, it, val_size,verbose):
     RMSE_list = []
     MAPE_list = []
@@ -104,13 +106,13 @@ def TestModel(model, it, val_size,verbose):
                     # all_data[feat] += 1
                     X_val[feat] = boxcox1p(X_val[feat], lam)
             # Remove NAN
-            if True:
+            if False:
                 X_train = X_train.fillna(-999)
                 X_val = X_val.fillna(-999)
 
         model.fit(X_train, Y_train)
         y_pred = np.expm1(model.predict(X_val))
-        rmse = mean_squared_error(Y_val, y_pred, squared=False)
+        rmse = mean_squared_log_error(Y_val, y_pred)
         mape = mean_absolute_percentage_error(Y_val, y_pred)
         RMSE_list.append(rmse)
         MAPE_list.append(mape)
@@ -218,7 +220,7 @@ if True:
     df_train = df_train.drop(df_train[(df_train['BsmtFinType2'] == 0) & (df_train['SalePrice'] > 500000)].index)
     df_train = df_train.drop(df_train[(df_train['BsmtFinType1'] == 0) & (df_train['SalePrice'] > 500000)].index)
     df_train = df_train.drop(df_train[(df_train['EnclosedPorch'] > 500) & (df_train['SalePrice'] < 300000)].index)
-    # ColumnsToCheck = list(df_train.columns)[50:-1]
+    ColumnsToCheck = list(df_train.columns)[1:-1]
     # #ColumnsToCheck = ['GrLivArea']
     # for col in ColumnsToCheck:
     #     fig, ax = plt.subplots()
@@ -278,11 +280,19 @@ model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=5, max_depth=-1,
                               max_bin = 40, colsample_bytree=0.3,
                               feature_fraction_seed=9, verbose=-1)
 
+# estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
-stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_lgb)
 
-TestModel(stackmodel_1, 20, 0.20,True)
+stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_xgb)
 
-
-
+TestModel(model_lgb, 20, 0.20,True)
+#1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
+# stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_lgb)
+# RMSE: 21651.245 | MAPE: 8.206
+#1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
+# stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=KRR)
+# RMSE: 24939.494 | MAPE: 8.091
+#1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
+# stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_xgb)
+#
 print("END")
