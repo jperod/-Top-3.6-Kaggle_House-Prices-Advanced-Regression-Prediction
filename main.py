@@ -346,15 +346,17 @@ estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb'
 stackmodel_1 = StackingRegressor(estimators=[('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),
                                              ('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
 stackmodel_2 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
-TestModel(stackmodel_2, 20, 0.20,True)
+stackmodel_3 = StackingRegressor(estimators=[('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR)],final_estimator=model_lgb)
+
+TestModel(stackmodel_3, 20, 0.20,True)
 #GBoost => RMSLE: 0.015 | MAPE: 8.398
 #lasso => RMSE: 0.014 | MAPE: 8.678
 #ENet => RMSE: 0.015 | MAPE: 8.591
 #model_xgb => RMSE: 0.013 | MAPE: 8.015
 #model_lgb => RMSE: 0.013 | MAPE: 8.02
 #stackmodel_1 => RMSE: 0.015 | MAPE: 8.527
-#stackmodel_2 => 
-
+#stackmodel_2 => RMSE: 0.014 | MAPE: 8.418
+#stackmodel_3 => 
 
 
 
