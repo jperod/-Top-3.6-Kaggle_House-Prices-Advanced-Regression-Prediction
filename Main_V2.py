@@ -26,3 +26,10 @@ import lightgbm as lgb
 
 df_train = pd.read_csv("train.csv")
 df_test = pd.read_csv("test.csv")
+y = df_train['SalePrice']
+
+X_train = df_train.drop(['SalePrice','Id'], axis=1)
+X_test = df_test.drop(['Id'], axis=1)
+X = pd.concat([X_train, X_test]).reset_index(drop=True)
+
+print(END)
