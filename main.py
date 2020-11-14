@@ -156,12 +156,13 @@ def MakePrediction(model):
             X_train = X_train.fillna(-999)
             X_val = X_val.fillna(-999)
 
-    X_train, Y_train = df_train.iloc[:,1:-1],df_train.iloc[:,-1]
+    X_train, Y_train = df_train.drop(columns="SalePrice"), df_train["SalePrice"]
     Y_train = np.log1p(Y_train)
     X_test = df_test.iloc[:,1:]
 
-    X_train['TotalSF'] = X_train['TotalBsmtSF'] + X_train['1stFlrSF'] + X_train['2ndFlrSF']
-    X_test['TotalSF'] = X_test['TotalBsmtSF'] + X_test['1stFlrSF'] + X_test['2ndFlrSF']
+    X_train = np.array(X_train)
+    Y_train = np.array(Y_train)
+    X_test = np.array(X_test)
 
     model.fit(X_train, Y_train)
     # y_pred = model.predict(X_test)
@@ -446,13 +447,26 @@ stackmodel = StackingCVRegressor(regressors=(KRR, lasso, ENet, GBoost, model_xgb
                                 use_features_in_secondary=True)
 
 TestModel(stackmodel, 20, 0.20,True)
+#stackmodel:
+#baggingmodel_xgb:
+#baggingmodel_lgb:
+#baggingmodel_gb:
+#baggingmodel_svr:
+#baggingmodel_KRR:
+#baggingmodel_ENet:
+#baggingmodel_lasso:
 
-sbaggingmodel_lgb = MakePrediction(baggingmodel_lgb)
-sbaggingmodel_xgb = MakePrediction(baggingmodel_xgb)
+sbaggingmodel_lasso = MakePrediction(baggingmodel_lasso);print("sbaggingmodel_lasso")
+sbaggingmodel_ENet = MakePrediction(baggingmodel_ENet);print("baggingmodel_ENet")
+sbaggingmodel_KRR = MakePrediction(baggingmodel_KRR);print("baggingmodel_KRR")
+sbaggingmodel_svr = MakePrediction(baggingmodel_svr);print("baggingmodel_svr")
+sbaggingmodel_gb = MakePrediction(baggingmodel_gb);print("baggingmodel_gb")
+sbaggingmodel_lgb = MakePrediction(baggingmodel_lgb);print("baggingmodel_lgb")
+sbaggingmodel_xgb = MakePrediction(baggingmodel_xgb);print("baggingmodel_xgb")
+sstack = MakePrediction(stackmodel);print("stackmodel")
 
-
-submission["SalePrice"] = pd.concat([submission["SalePrice"],submission2["SalePrice"]], axis=1).mean(axis=1)
-
+final_submission = pd.concat([0.1*sbaggingmodel_lasso["SalePrice"],0.1*sbaggingmodel_ENet["SalePrice"],0.1*sbaggingmodel_KRR["SalePrice"],0.1*sbaggingmodel_svr["SalePrice"],0.1*sbaggingmodel_gb["SalePrice"],0.15*sbaggingmodel_xgb["SalePrice"],0.2*sstack["SalePrice"]], axis=1).sum(axis=1)
+submission = final_submission
 submission.to_csv("submission5.csv", index=False)
 #
 #1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
