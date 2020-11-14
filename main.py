@@ -1,12 +1,16 @@
 import warnings
+
+from mlxtend.regressor import StackingCVRegressor
+from sklearn.svm import SVR
+
 warnings.filterwarnings("ignore")
-from sklearn.linear_model import ElasticNet, Lasso
+from sklearn.linear_model import ElasticNet, Lasso, RidgeCV, LassoCV, ElasticNetCV, Ridge
 from sklearn.ensemble import GradientBoostingRegressor, StackingRegressor, BaggingRegressor
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.preprocessing import RobustScaler
 import xgboost as xgb
 import matplotlib.pyplot as plt
-from scipy.stats import skew #for some statistics
+from scipy.stats import skew, stats, shapiro  # for some statistics
 import seaborn as sns
 color = sns.color_palette()
 sns.set_style('darkgrid')
@@ -56,7 +60,7 @@ def TestModel(model, it, val_size,verbose):
     RMSE_list = []
     MAPE_list = []
     for i in range(it):
-        X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:, 1:-1], df_train.iloc[:, -1], test_size=val_size, shuffle=True)
+        X_train, X_val, Y_train, Y_val = train_test_split(df_train.drop(columns="SalePrice"), df_train["SalePrice"], test_size=val_size, shuffle=True)
         ###################### Log-transformation of the target variable #############################################
         if True:
             # Remove Outliers
@@ -81,34 +85,10 @@ def TestModel(model, it, val_size,verbose):
             X_train['TotalSF'] = X_train['TotalBsmtSF'] + X_train['1stFlrSF'] + X_train['2ndFlrSF']
             X_val['TotalSF'] = X_val['TotalBsmtSF'] + X_val['1stFlrSF'] + X_val['2ndFlrSF']
             # More Transformation
-            if False:
-                numeric_feats_train = X_train.dtypes[X_train.dtypes != "object"].index
-                numeric_feats_val = X_val.dtypes[X_val.dtypes != "object"].index
-
-                # Check the skew of all numerical features
-                skewed_feats_train = X_train[numeric_feats_train].apply(lambda x: skew(x.dropna())).sort_values(
-                    ascending=False)
-                skewed_feats_val = X_val[numeric_feats_val].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
-                # print("\nSkew in numerical features: \n")
-                skewness_train = pd.DataFrame({'Skew': skewed_feats_train})
-                skewness_train = skewness_train[abs(skewness_train) > 0.75]
-                skewness_val = pd.DataFrame({'Skew': skewed_feats_val})
-                skewness_val = skewness_val[abs(skewness_val) > 0.75]
-
-                skewed_features_train = skewness_train.index
-                skewed_features_val = skewness_val.index
-
-                lam = 0.15
-                for feat in skewed_features_train:
-                    # all_data[feat] += 1
-                    X_train[feat] = boxcox1p(X_train[feat], lam)
-                for feat in skewed_features_val:
-                    # all_data[feat] += 1
-                    X_val[feat] = boxcox1p(X_val[feat], lam)
-            # Remove NAN
-            if False:
-                X_train = X_train.fillna(-1)
-                X_val = X_val.fillna(-1)
+            X_train = np.array(X_train)
+            Y_train = np.array(Y_train)
+            X_val = np.array(X_val)
+            Y_val = np.array(Y_val)
 
         model.fit(X_train, Y_train)
         y_pred = np.expm1(model.predict(X_val))
@@ -118,8 +98,11 @@ def TestModel(model, it, val_size,verbose):
         MAPE_list.append(mape)
 
     if verbose:
-        print('RMSE: ' + str(round(np.mean(RMSE_list),3)) + ' | MAPE: ' + str(round(np.mean(MAPE_list),3)))
-    return round(np.mean(RMSE_list),3), round(np.mean(MAPE_list),3)
+        print('RMSLE: ' + str(round(np.mean(RMSE_list),3)) + ' | MAPE: ' + str(round(np.mean(MAPE_list),3)))
+
+    # submission = pd.concat([df_test.iloc[:, 0], pd.DataFrame(y_pred, columns=['SalePrice'])], axis=1)
+
+    return
 def MakePrediction(model):
     if False:
         # Remove Outliers
@@ -264,13 +247,103 @@ def TuneXGB():
 df_train = pd.read_csv("train.csv")
 df_test = pd.read_csv("test.csv")
 
-df_train = MultiColumnLabelEncoder(columns = ['MSSubClass','Alley','MSZoning','Street','LotShape','LandContour','Utilities','LotConfig','LandSlope','Neighborhood','Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st','Exterior2nd','MasVnrType','ExterQual','ExterCond','Foundation','BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinType2','Heating','HeatingQC','CentralAir','Electrical','KitchenQual','Functional','FireplaceQu','GarageType','GarageFinish','GarageQual','GarageCond','PavedDrive','Fence','MiscFeature','PoolQC','SaleType','SaleCondition']).fit_transform(df_train)
-df_test = MultiColumnLabelEncoder(columns = ['MSSubClass','Alley','MSZoning','Street','LotShape','LandContour','Utilities','LotConfig','LandSlope','Neighborhood','Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st','Exterior2nd','MasVnrType','ExterQual','ExterCond','Foundation','BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinType2','Heating','HeatingQC','CentralAir','Electrical','KitchenQual','Functional','FireplaceQu','GarageType','GarageFinish','GarageQual','GarageCond','PavedDrive','Fence','MiscFeature','PoolQC','SaleType','SaleCondition']).fit_transform(df_test)
+quantitative = ['MSSubClass',
+ 'LotFrontage',
+ 'LotArea',
+ 'OverallQual',
+ 'OverallCond',
+ 'YearBuilt',
+ 'YearRemodAdd',
+ 'MasVnrArea',
+ 'BsmtFinSF1',
+ 'BsmtFinSF2',
+ 'BsmtUnfSF',
+ 'TotalBsmtSF',
+ '1stFlrSF',
+ '2ndFlrSF',
+ 'LowQualFinSF',
+ 'GrLivArea',
+ 'BsmtFullBath',
+ 'BsmtHalfBath',
+ 'FullBath',
+ 'HalfBath',
+ 'BedroomAbvGr',
+ 'KitchenAbvGr',
+ 'TotRmsAbvGrd',
+ 'Fireplaces',
+ 'GarageYrBlt',
+ 'GarageCars',
+ 'GarageArea',
+ 'WoodDeckSF',
+ 'OpenPorchSF',
+ 'EnclosedPorch',
+ '3SsnPorch',
+ 'ScreenPorch',
+ 'PoolArea',
+ 'MiscVal',
+ 'MoSold',
+ 'YrSold']
+qualitative = ['MSZoning',
+ 'Street',
+ 'Alley',
+ 'LotShape',
+ 'LandContour',
+ 'Utilities',
+ 'LotConfig',
+ 'LandSlope',
+ 'Neighborhood',
+ 'Condition1',
+ 'Condition2',
+ 'BldgType',
+ 'HouseStyle',
+ 'RoofStyle',
+ 'RoofMatl',
+ 'Exterior1st',
+ 'Exterior2nd',
+ 'MasVnrType',
+ 'ExterQual',
+ 'ExterCond',
+ 'Foundation',
+ 'BsmtQual',
+ 'BsmtCond',
+ 'BsmtExposure',
+ 'BsmtFinType1',
+ 'BsmtFinType2',
+ 'Heating',
+ 'HeatingQC',
+ 'CentralAir',
+ 'Electrical',
+ 'KitchenQual',
+ 'Functional',
+ 'FireplaceQu',
+ 'GarageType',
+ 'GarageFinish',
+ 'GarageQual',
+ 'GarageCond',
+ 'PavedDrive',
+ 'PoolQC',
+ 'Fence',
+ 'MiscFeature',
+ 'SaleType',
+ 'SaleCondition']
+# test_normality = lambda x: shapiro(x.fillna(0))[1] < 0.01
+# normal = pd.DataFrame(df_train[quantitative])
+# normal = normal.apply(test_normality)
+# print(not normal.any())
+# df_train[quantitative] = normal
 
-# X_train, X_val, Y_train, Y_val = train_test_split(df_train.iloc[:, 1:-1], df_train.iloc[:, -1], test_size=0.25,
-#                                                       shuffle=True)
-# df_train = pd.concat([X_train , pd.DataFrame(Y_train)], axis=1)
-# df_val = pd.concat([X_val, pd.DataFrame(Y_val)], axis=1)
+for col in df_train.columns[1:-1]:
+    if col in quantitative:
+        df_train[col] = df_train[col].fillna(0)
+        df_test[col] = df_test[col].fillna(0)
+    else:
+        df_train[col] = df_train[col].fillna('None')
+        df_train[col] = LabelEncoder().fit_transform(df_train[col].astype(str))
+        df_test[col] = df_test[col].fillna('None')
+        df_test[col] = LabelEncoder().fit_transform(df_test[col].astype(str))
+#
+# df_train = MultiColumnLabelEncoder(columns = ['MSSubClass','Alley','MSZoning','Street','LotShape','LandContour','Utilities','LotConfig','LandSlope','Neighborhood','Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st','Exterior2nd','MasVnrType','ExterQual','ExterCond','Foundation','BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinType2','Heating','HeatingQC','CentralAir','Electrical','KitchenQual','Functional','FireplaceQu','GarageType','GarageFinish','GarageQual','GarageCond','PavedDrive','Fence','MiscFeature','PoolQC','SaleType','SaleCondition']).fit_transform(df_train)
+# df_test = MultiColumnLabelEncoder(columns = ['MSSubClass','Alley','MSZoning','Street','LotShape','LandContour','Utilities','LotConfig','LandSlope','Neighborhood','Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st','Exterior2nd','MasVnrType','ExterQual','ExterCond','Foundation','BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinType2','Heating','HeatingQC','CentralAir','Electrical','KitchenQual','Functional','FireplaceQu','GarageType','GarageFinish','GarageQual','GarageCond','PavedDrive','Fence','MiscFeature','PoolQC','SaleType','SaleCondition']).fit_transform(df_test)
 
 ####################### Outliers Removal Manually ############################
 if True:
@@ -297,10 +370,53 @@ if True:
     #     plt.show()
     #     print(str(col) + ' is clean!')
     #     print(" ")
+################### Feature ENgineering ###################
+df_train = df_train.drop(['Utilities', 'Street', 'PoolQC',], axis=1)
+
+df_train['YrBltAndRemod']=df_train['YearBuilt']+df_train['YearRemodAdd']
+df_train['TotalSF']=df_train['TotalBsmtSF'] + df_train['1stFlrSF'] + df_train['2ndFlrSF']
+
+df_train['Total_sqr_footage'] = (df_train['BsmtFinSF1'] + df_train['BsmtFinSF2'] +
+                                 df_train['1stFlrSF'] + df_train['2ndFlrSF'])
+
+df_train['Total_Bathrooms'] = (df_train['FullBath'] + (0.5 * df_train['HalfBath']) +
+                               df_train['BsmtFullBath'] + (0.5 * df_train['BsmtHalfBath']))
+
+df_train['Total_porch_sf'] = (df_train['OpenPorchSF'] + df_train['3SsnPorch'] +
+                              df_train['EnclosedPorch'] + df_train['ScreenPorch'] +
+                              df_train['WoodDeckSF'])
+
+df_train['haspool'] = df_train['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
+df_train['has2ndfloor'] = df_train['2ndFlrSF'].apply(lambda x: 1 if x > 0 else 0)
+df_train['hasgarage'] = df_train['GarageArea'].apply(lambda x: 1 if x > 0 else 0)
+df_train['hasbsmt'] = df_train['TotalBsmtSF'].apply(lambda x: 1 if x > 0 else 0)
+df_train['hasfireplace'] = df_train['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+
+df_test = df_test.drop(['Utilities', 'Street', 'PoolQC',], axis=1)
+
+df_test['YrBltAndRemod']=df_test['YearBuilt']+df_test['YearRemodAdd']
+df_test['TotalSF']=df_test['TotalBsmtSF'] + df_test['1stFlrSF'] + df_test['2ndFlrSF']
+
+df_test['Total_sqr_footage'] = (df_test['BsmtFinSF1'] + df_test['BsmtFinSF2'] +
+                                 df_test['1stFlrSF'] + df_test['2ndFlrSF'])
+
+df_test['Total_Bathrooms'] = (df_test['FullBath'] + (0.5 * df_test['HalfBath']) +
+                               df_test['BsmtFullBath'] + (0.5 * df_test['BsmtHalfBath']))
+
+df_test['Total_porch_sf'] = (df_test['OpenPorchSF'] + df_test['3SsnPorch'] +
+                              df_test['EnclosedPorch'] + df_test['ScreenPorch'] +
+                              df_test['WoodDeckSF'])
+
+df_test['haspool'] = df_test['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
+df_test['has2ndfloor'] = df_test['2ndFlrSF'].apply(lambda x: 1 if x > 0 else 0)
+df_test['hasgarage'] = df_test['GarageArea'].apply(lambda x: 1 if x > 0 else 0)
+df_test['hasbsmt'] = df_test['TotalBsmtSF'].apply(lambda x: 1 if x > 0 else 0)
+df_test['hasfireplace'] = df_test['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
 
 lasso = make_pipeline(RobustScaler(), Lasso(alpha =0.0005, random_state=1))
 ENet = make_pipeline(RobustScaler(), ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3))
-KRR = KernelRidge(alpha=0.6, kernel='polynomial', degree=2, coef0=2.5)
+KRR = make_pipeline(RobustScaler(), KernelRidge(alpha=0.6, kernel='polynomial', degree=2, coef0=2.5))
+svr = make_pipeline(RobustScaler(), SVR(C= 20, epsilon= 0.008, gamma=0.0003,))
 GBoost = GradientBoostingRegressor(n_estimators=3000, learning_rate=0.05,
                                    max_depth=4, max_features='sqrt',
                                    min_samples_leaf=15, min_samples_split=10,
@@ -317,32 +433,25 @@ model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=5, max_depth=-1,
                               max_bin = 40, colsample_bytree=0.3,
                               feature_fraction_seed=9, verbose=-1)
 
-# estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
-estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
-stackmodel_1 = StackingRegressor(estimators=[('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),
-                                             ('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
-stackmodel_2 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lgb)],final_estimator=model_lgb)
-baggingmodel_1 = BaggingRegressor(base_estimator= model_lgb, n_estimators=10)
-stackmodel_3 = StackingRegressor(estimators=[('xgb', model_xgb),('lgb', model_lgb)],final_estimator=baggingmodel_1)
-baggingmodel_2 = BaggingRegressor(base_estimator= model_xgb, n_estimators=10)
-baggingmodel_3 = BaggingRegressor(base_estimator= stackmodel_3, n_estimators=10)
+# Stack model
+baggingmodel_lasso = BaggingRegressor(base_estimator=lasso)
+baggingmodel_ENet = BaggingRegressor(base_estimator=ENet)
+baggingmodel_KRR = BaggingRegressor(base_estimator=KRR)
+baggingmodel_svr = BaggingRegressor(base_estimator=svr)
+baggingmodel_gb = BaggingRegressor(base_estimator=GBoost)
+baggingmodel_lgb = BaggingRegressor(base_estimator=model_lgb)
+baggingmodel_xgb = BaggingRegressor(base_estimator=model_xgb)
+stackmodel = StackingCVRegressor(regressors=(KRR, lasso, ENet, GBoost, model_xgb, model_lgb),
+                                meta_regressor=model_lgb,
+                                use_features_in_secondary=True)
 
-# TestModel(stackmodel_3, 20, 0.20,True)
-#GBoost => RMSLE: 0.015 | MAPE: 8.398
-#lasso => RMSE: 0.014 | MAPE: 8.678
-#ENet => RMSE: 0.015 | MAPE: 8.591
-#model_xgb => RMSE: 0.013 | MAPE: 8.015
-#model_lgb => RMSE: 0.013 | MAPE: 8.02
-#stackmodel_1 => RMSE: 0.015 | MAPE: 8.527
-#stackmodel_2 => RMSE: 0.014 | MAPE: 8.418
-#baggingmodel_1 => 0.013 | MAPE: 8.018
-#stackmodel_3 => RMSE: 0.015 | MAPE: 8.661
+TestModel(stackmodel, 20, 0.20,True)
+
+sbaggingmodel_lgb = MakePrediction(baggingmodel_lgb)
+sbaggingmodel_xgb = MakePrediction(baggingmodel_xgb)
 
 
-submission = MakePrediction(baggingmodel_1)
-submission2 = MakePrediction(baggingmodel_2)
-submission3 = MakePrediction(baggingmodel_3)
-submission["SalePrice"] = pd.concat([submission["SalePrice"],submission2["SalePrice"],submission3["SalePrice"]], axis=1).mean(axis=1)
+submission["SalePrice"] = pd.concat([submission["SalePrice"],submission2["SalePrice"]], axis=1).mean(axis=1)
 
 submission.to_csv("submission5.csv", index=False)
 #
