@@ -1,6 +1,7 @@
 import warnings
 
 from mlxtend.regressor import StackingCVRegressor
+from scipy.special import boxcox1p
 from sklearn.svm import SVR
 import progressbar
 warnings.filterwarnings("ignore")
@@ -10,7 +11,7 @@ from sklearn.kernel_ridge import KernelRidge
 from sklearn.preprocessing import RobustScaler
 import xgboost as xgb
 import matplotlib.pyplot as plt
-from scipy.stats import skew, stats, shapiro  # for some statistics
+from scipy.stats import skew, stats, shapiro, boxcox_normmax  # for some statistics
 import seaborn as sns
 color = sns.color_palette()
 sns.set_style('darkgrid')
@@ -92,7 +93,6 @@ def TestModel(model, it, val_size,verbose):
             X_val = np.array(X_val)
             Y_val = np.array(Y_val)
 
-
         # print
         model.fit(X_train, Y_train)
         y_pred = np.expm1(model.predict(X_val))
@@ -112,7 +112,7 @@ def MakePrediction(model):
 
     X_train, Y_train = df_train.drop(columns=["SalePrice","Id"]), df_train["SalePrice"]
     Y_train = np.log1p(Y_train)
-    X_test = df_test.iloc[:,1:]
+    X_test = df_test.drop(columns=["Id"])
 
     X_train = np.array(X_train)
     Y_train = np.array(Y_train)
@@ -289,8 +289,9 @@ qualitative = ['MSZoning',
 
 for col in df_train.columns[1:-1]:
     if col in quantitative:
-        df_train[col] = df_train[col].fillna(0)
-        df_test[col] = df_test[col].fillna(0)
+        print("")
+        # df_train[col] = df_train[col].fillna(0)
+        # df_test[col] = df_test[col].fillna(0)
     else:
         df_train[col] = df_train[col].fillna('None')
         df_train[col] = LabelEncoder().fit_transform(df_train[col].astype(str))
@@ -326,47 +327,84 @@ if True:
     #     print(str(col) + ' is clean!')
     #     print(" ")
 ################### Feature ENgineering ###################
-df_train = df_train.drop(['Utilities', 'Street', 'PoolQC',], axis=1)
+if True:
+    # df_train_old = df_train.copy()
+    #
+    # numeric_dtypes = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+    # numerics2 = []
+    # for i in df_train.columns[1:-1]:
+    #     if df_train[i].dtype in numeric_dtypes:
+    #         numerics2.append(i)
+    # skew_features_train = df_train[numerics2].apply(lambda x: skew(x)).sort_values(ascending=False)
+    # high_skew_train = skew_features_train[skew_features_train > 0.5]
+    # skew_index_train = high_skew_train.index
+    #
+    # for i in skew_index_train:
+    #     df_train[i] = boxcox1p(df_train[i], boxcox_normmax(df_train[i] + 1))
+    #     df_test[i] = boxcox1p(df_test[i], boxcox_normmax(df_test[i] + 1))
 
-df_train['YrBltAndRemod']=df_train['YearBuilt']+df_train['YearRemodAdd']
-df_train['TotalSF']=df_train['TotalBsmtSF'] + df_train['1stFlrSF'] + df_train['2ndFlrSF']
 
-df_train['Total_sqr_footage'] = (df_train['BsmtFinSF1'] + df_train['BsmtFinSF2'] +
-                                 df_train['1stFlrSF'] + df_train['2ndFlrSF'])
+    df_train = df_train.drop(['Utilities', 'Street', 'PoolQC',], axis=1)
 
-df_train['Total_Bathrooms'] = (df_train['FullBath'] + (0.5 * df_train['HalfBath']) +
-                               df_train['BsmtFullBath'] + (0.5 * df_train['BsmtHalfBath']))
+    df_train['YrBltAndRemod']=df_train['YearBuilt']+df_train['YearRemodAdd']
+    df_train['TotalSF']=df_train['TotalBsmtSF'] + df_train['1stFlrSF'] + df_train['2ndFlrSF']
 
-df_train['Total_porch_sf'] = (df_train['OpenPorchSF'] + df_train['3SsnPorch'] +
-                              df_train['EnclosedPorch'] + df_train['ScreenPorch'] +
-                              df_train['WoodDeckSF'])
+    df_train['Total_sqr_footage'] = (df_train['BsmtFinSF1'] + df_train['BsmtFinSF2'] +
+                                     df_train['1stFlrSF'] + df_train['2ndFlrSF'])
 
-df_train['haspool'] = df_train['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
-df_train['has2ndfloor'] = df_train['2ndFlrSF'].apply(lambda x: 1 if x > 0 else 0)
-df_train['hasgarage'] = df_train['GarageArea'].apply(lambda x: 1 if x > 0 else 0)
-df_train['hasbsmt'] = df_train['TotalBsmtSF'].apply(lambda x: 1 if x > 0 else 0)
-df_train['hasfireplace'] = df_train['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+    df_train['Total_Bathrooms'] = (df_train['FullBath'] + (0.5 * df_train['HalfBath']) +
+                                   df_train['BsmtFullBath'] + (0.5 * df_train['BsmtHalfBath']))
 
-df_test = df_test.drop(['Utilities', 'Street', 'PoolQC',], axis=1)
+    df_train['Total_porch_sf'] = (df_train['OpenPorchSF'] + df_train['3SsnPorch'] +
+                                  df_train['EnclosedPorch'] + df_train['ScreenPorch'] +
+                                  df_train['WoodDeckSF'])
 
-df_test['YrBltAndRemod']=df_test['YearBuilt']+df_test['YearRemodAdd']
-df_test['TotalSF']=df_test['TotalBsmtSF'] + df_test['1stFlrSF'] + df_test['2ndFlrSF']
+    df_train['haspool'] = df_train['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
+    df_train['has2ndfloor'] = df_train['2ndFlrSF'].apply(lambda x: 1 if x > 0 else 0)
+    df_train['hasgarage'] = df_train['GarageArea'].apply(lambda x: 1 if x > 0 else 0)
+    df_train['hasbsmt'] = df_train['TotalBsmtSF'].apply(lambda x: 1 if x > 0 else 0)
+    df_train['hasfireplace'] = df_train['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
 
-df_test['Total_sqr_footage'] = (df_test['BsmtFinSF1'] + df_test['BsmtFinSF2'] +
-                                 df_test['1stFlrSF'] + df_test['2ndFlrSF'])
+    df_test = df_test.drop(['Utilities', 'Street', 'PoolQC',], axis=1)
 
-df_test['Total_Bathrooms'] = (df_test['FullBath'] + (0.5 * df_test['HalfBath']) +
-                               df_test['BsmtFullBath'] + (0.5 * df_test['BsmtHalfBath']))
+    df_test['YrBltAndRemod']=df_test['YearBuilt']+df_test['YearRemodAdd']
+    df_test['TotalSF']=df_test['TotalBsmtSF'] + df_test['1stFlrSF'] + df_test['2ndFlrSF']
 
-df_test['Total_porch_sf'] = (df_test['OpenPorchSF'] + df_test['3SsnPorch'] +
-                              df_test['EnclosedPorch'] + df_test['ScreenPorch'] +
-                              df_test['WoodDeckSF'])
+    df_test['Total_sqr_footage'] = (df_test['BsmtFinSF1'] + df_test['BsmtFinSF2'] +
+                                     df_test['1stFlrSF'] + df_test['2ndFlrSF'])
 
-df_test['haspool'] = df_test['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
-df_test['has2ndfloor'] = df_test['2ndFlrSF'].apply(lambda x: 1 if x > 0 else 0)
-df_test['hasgarage'] = df_test['GarageArea'].apply(lambda x: 1 if x > 0 else 0)
-df_test['hasbsmt'] = df_test['TotalBsmtSF'].apply(lambda x: 1 if x > 0 else 0)
-df_test['hasfireplace'] = df_test['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+    df_test['Total_Bathrooms'] = (df_test['FullBath'] + (0.5 * df_test['HalfBath']) +
+                                   df_test['BsmtFullBath'] + (0.5 * df_test['BsmtHalfBath']))
+
+    df_test['Total_porch_sf'] = (df_test['OpenPorchSF'] + df_test['3SsnPorch'] +
+                                  df_test['EnclosedPorch'] + df_test['ScreenPorch'] +
+                                  df_test['WoodDeckSF'])
+
+    df_test['haspool'] = df_test['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
+    df_test['has2ndfloor'] = df_test['2ndFlrSF'].apply(lambda x: 1 if x > 0 else 0)
+    df_test['hasgarage'] = df_test['GarageArea'].apply(lambda x: 1 if x > 0 else 0)
+    df_test['hasbsmt'] = df_test['TotalBsmtSF'].apply(lambda x: 1 if x > 0 else 0)
+    df_test['hasfireplace'] = df_test['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+
+    # print(df_train.shape)
+    df_train = pd.get_dummies(df_train).reset_index(drop=True)
+    # print(df_train.shape)
+
+    outliers = [30, 88, 462, 631, 1322]
+    df_train = df_train.drop(df_train.index[outliers])
+
+    overfit = []
+    for i in df_train.drop(columns="SalePrice").iloc[:,1:].columns:
+        counts = df_train.drop(columns="SalePrice").iloc[:,1:][i].value_counts()
+        zeros = counts.iloc[0]
+        if zeros / len(df_train.drop(columns="SalePrice").iloc[:,1:]) * 100 > 99.94:
+            overfit.append(i)
+
+    overfit = list(overfit)
+    # overfit.append('MSZoning_C (all)')
+
+    df_train.drop(columns="SalePrice").iloc[:,1:] = df_train.drop(columns="SalePrice").iloc[:,1:].drop(overfit, axis=1).copy()
+
 
 ## Modelling
 # kfolds = KFold(n_splits=10, shuffle=True, random_state=42)
@@ -412,21 +450,19 @@ df_test['hasfireplace'] = df_test['Fireplaces'].apply(lambda x: 1 if x > 0 else 
 
 # score = cv_rmse(ridge)
 # print("LASSO: {:.4f} ({:.4f})\n".format(score.mean(), score.std()))
+from sklearn.impute import SimpleImputer
+imp_median = SimpleImputer(missing_values=np.nan, strategy='median')
+# imp_median = SimpleImputer(missing_values=np.nan, strategy='constant', fill_value=0)
 
+lasso = make_pipeline(RobustScaler(), imp_median, Lasso(alpha =0.0005, random_state=1))
+ENet = make_pipeline(RobustScaler(), imp_median, ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3))
+KRR = make_pipeline(RobustScaler(), imp_median, KernelRidge(alpha=0.6, kernel='polynomial', degree=2, coef0=2.5))
+svr = make_pipeline(RobustScaler(), imp_median, SVR(C= 20, epsilon= 0.008, gamma=0.0003,))
 
-
-
-
-
-
-lasso = make_pipeline(RobustScaler(), Lasso(alpha =0.0005, random_state=1))
-ENet = make_pipeline(RobustScaler(), ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3))
-KRR = make_pipeline(RobustScaler(), KernelRidge(alpha=0.6, kernel='polynomial', degree=2, coef0=2.5))
-svr = make_pipeline(RobustScaler(), SVR(C= 20, epsilon= 0.008, gamma=0.0003,))
-GBoost = GradientBoostingRegressor(n_estimators=3000, learning_rate=0.05,
+GBoost = make_pipeline(imp_median, GradientBoostingRegressor(n_estimators=3000, learning_rate=0.05,
                                    max_depth=4, max_features='sqrt',
                                    min_samples_leaf=15, min_samples_split=10,
-                                   loss='huber', random_state =5)
+                                   loss='huber', random_state =5))
 # Tuned XGB Model [0.2, 0.01, 3, 2, 1000, 0.1, 0.85, 0.5, 20586.5, 8.02]
 model_xgb = xgb.XGBRegressor(colsample_bytree=0.2, gamma=0.01,
                              learning_rate=0.05, max_depth=3,
@@ -442,26 +478,33 @@ model_lgb = lgb.LGBMRegressor(objective='regression',num_leaves=5, max_depth=-1,
 # Stack model
 baggingmodel_lasso = BaggingRegressor(base_estimator=lasso)
 baggingmodel_ENet = BaggingRegressor(base_estimator=ENet)
-baggingmodel_KRR = BaggingRegressor(base_estimator=KRR)
+# baggingmodel_KRR = BaggingRegressor(base_estimator=KRR)
 baggingmodel_svr = BaggingRegressor(base_estimator=svr)
+baggingmodel_GBoost = BaggingRegressor(base_estimator=GBoost)
+
 GBoost = GBoost
 baggingmodel_lgb = BaggingRegressor(base_estimator=model_lgb)
 baggingmodel_xgb = BaggingRegressor(base_estimator=model_xgb)
-stackmodel = StackingCVRegressor(regressors=(lasso, ENet, GBoost, model_xgb, model_lgb),
-                                meta_regressor=model_lgb,
-                                use_features_in_secondary=True)
+stackmodel = make_pipeline(imp_median,StackingCVRegressor(regressors=(lasso, ENet, GBoost,
+                                             model_xgb, model_lgb),
+                                meta_regressor=model_xgb,
+                                use_features_in_secondary=True))
 
-TestModel(lasso, 5, 0.20,True)
-#lasso
+# TestModel(stackmodel, 1, 0.20,True)
+#stackmodel: RMSLE: 0.012 | MAPE: 7.785
+#baggingmodel_xgb: RMSLE: 0.012 | MAPE: 7.482
+#baggingmodel_lgb:RMSLE: 0.012 | MAPE: 7.568
+#baggingmodel_GBoost:
+#GBoost:
 
 # sbaggingmodel_lasso = MakePrediction(baggingmodel_lasso);print("sbaggingmodel_lasso done")
 # sbaggingmodel_ENet = MakePrediction(baggingmodel_ENet);print("baggingmodel_ENet done")
 # sbaggingmodel_KRR = MakePrediction(baggingmodel_KRR);print("baggingmodel_KRR done")
 # sbaggingmodel_svr = MakePrediction(baggingmodel_svr);print("baggingmodel_svr done")
-sGBoost = MakePrediction(GBoost);print("GBoost done")
+sGBoost = MakePrediction(baggingmodel_GBoost);print("baggingmodel_GBoost done")
 sbaggingmodel_lgb = MakePrediction(baggingmodel_lgb);print("baggingmodel_lgb done")
 sbaggingmodel_xgb = MakePrediction(baggingmodel_xgb);print("baggingmodel_xgb done")
-# sstack = MakePrediction(stackmodel);print("stackmodel done")
+sstack = MakePrediction(stackmodel);print("stackmodel done")
 
 # sbaggingmodel_lasso.to_csv("submission5.csv", index=False)
 
@@ -469,11 +512,14 @@ sbaggingmodel_xgb = MakePrediction(baggingmodel_xgb);print("baggingmodel_xgb don
 # final_submission = pd.concat([0.1*sbaggingmodel_lasso["SalePrice"],0.5*sbaggingmodel_ENet["SalePrice"],
 #                               0.3*sGBoost["SalePrice"],0.1*sbaggingmodel_xgb["SalePrice"],0.1*sbaggingmodel_lgb["SalePrice"],
 #                               0.10*sstack["SalePrice"]], axis=1).sum(axis=1)
-final_submission = pd.concat([0.4*sGBoost["SalePrice"],0.3*sbaggingmodel_xgb["SalePrice"],0.3*sbaggingmodel_lgb["SalePrice"]], axis=1).sum(axis=1)
+final_submission = pd.concat(
+    [0.25*sGBoost["SalePrice"],0.25*sbaggingmodel_xgb["SalePrice"],0.25*sbaggingmodel_lgb["SalePrice"],0.25*sstack["SalePrice"]]
+    , axis=1).sum(axis=1)
+final_submission = pd.concat(sbaggingmodel_lgb["SalePrice"], axis=1).sum(axis=1)
 s = sbaggingmodel_xgb.copy()
 s["SalePrice"] = final_submission
 submission = s
-submission.to_csv("submission7.csv", index=False)
+submission.to_csv("submission6.csv", index=False)
 
 
 print("END")
