@@ -104,59 +104,8 @@ def TestModel(model, it, val_size,verbose):
 
     return
 def MakePrediction(model):
-    if False:
-        # Remove Outliers
-        all_train = pd.concat([X_train,Y_train],axis=1)
-        all_train = all_train.drop(all_train[(all_train['GrLivArea'] > 4000) & (all_train['SalePrice'] < 300000)].index)
-        all_train = all_train.drop(all_train[(all_train['LotFrontage'] > 250) & (all_train['SalePrice'] < 400000)].index)
-        all_train = all_train.drop(all_train[(all_train['LotArea'] > 150000) & (all_train['SalePrice'] < 500000)].index)
-        all_train = all_train.drop(all_train[(all_train['OverallCond'] == 6) & (all_train['SalePrice'] > 550000)].index)
-        all_train = all_train.drop(all_train[(all_train['OverallCond'] == 2) & (all_train['SalePrice'] > 300000)].index)
-        all_train = all_train.drop(all_train[(all_train['YearBuilt'] < 1920) & (all_train['SalePrice'] > 300000)].index)
-        all_train = all_train.drop(all_train[(all_train['YearBuilt'] > 1990) & (all_train['SalePrice'] > 650000)].index)
-        all_train = all_train.drop(all_train[(all_train['Exterior1st'] == 6) & (all_train['SalePrice'] > 500000)].index)
-        all_train = all_train.drop(all_train[(all_train['MasVnrArea'] > 1400) & (all_train['SalePrice'] > 200000)].index)
-        all_train = all_train.drop(all_train[(all_train['BsmtFinType2'] == 0) & (all_train['SalePrice'] > 500000)].index)
-        all_train = all_train.drop(all_train[(all_train['BsmtFinType1'] == 0) & (all_train['SalePrice'] > 500000)].index)
-        all_train = all_train.drop(all_train[(all_train['EnclosedPorch'] > 500) & (all_train['SalePrice'] < 300000)].index)
-        X_train = all_train.iloc[:,0:-1]; Y_train = all_train.iloc[:,-1];
-        # We use the numpy fuction log1p which  applies log(1+x) to all elements of the column
-        Y_train = np.log1p(Y_train)
-        ###################### Adding total sqfootage feature | Skewed features ###################################
-        # Adding total sqfootage feature
-        X_train['TotalSF'] = X_train['TotalBsmtSF'] + X_train['1stFlrSF'] + X_train['2ndFlrSF']
-        X_val['TotalSF'] = X_val['TotalBsmtSF'] + X_val['1stFlrSF'] + X_val['2ndFlrSF']
-        # More Transformation
-        if False:
-            numeric_feats_train = X_train.dtypes[X_train.dtypes != "object"].index
-            numeric_feats_val = X_val.dtypes[X_val.dtypes != "object"].index
 
-            # Check the skew of all numerical features
-            skewed_feats_train = X_train[numeric_feats_train].apply(lambda x: skew(x.dropna())).sort_values(
-                ascending=False)
-            skewed_feats_val = X_val[numeric_feats_val].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
-            # print("\nSkew in numerical features: \n")
-            skewness_train = pd.DataFrame({'Skew': skewed_feats_train})
-            skewness_train = skewness_train[abs(skewness_train) > 0.75]
-            skewness_val = pd.DataFrame({'Skew': skewed_feats_val})
-            skewness_val = skewness_val[abs(skewness_val) > 0.75]
-
-            skewed_features_train = skewness_train.index
-            skewed_features_val = skewness_val.index
-
-            lam = 0.15
-            for feat in skewed_features_train:
-                # all_data[feat] += 1
-                X_train[feat] = boxcox1p(X_train[feat], lam)
-            for feat in skewed_features_val:
-                # all_data[feat] += 1
-                X_val[feat] = boxcox1p(X_val[feat], lam)
-        # Remove NAN
-        if False:
-            X_train = X_train.fillna(-999)
-            X_val = X_val.fillna(-999)
-
-    X_train, Y_train = df_train.drop(columns="SalePrice"), df_train["SalePrice"]
+    X_train, Y_train = df_train.drop(columns=["SalePrice","Id"]), df_train["SalePrice"]
     Y_train = np.log1p(Y_train)
     X_test = df_test.iloc[:,1:]
 
@@ -446,7 +395,7 @@ stackmodel = StackingCVRegressor(regressors=(KRR, lasso, ENet, GBoost, model_xgb
                                 meta_regressor=model_lgb,
                                 use_features_in_secondary=True)
 
-TestModel(stackmodel, 20, 0.20,True)
+# TestModel(stackmodel, 20, 0.20,True)
 #stackmodel:
 #baggingmodel_xgb:
 #baggingmodel_lgb:
@@ -456,26 +405,17 @@ TestModel(stackmodel, 20, 0.20,True)
 #baggingmodel_ENet:
 #baggingmodel_lasso:
 
-sbaggingmodel_lasso = MakePrediction(baggingmodel_lasso);print("sbaggingmodel_lasso")
-sbaggingmodel_ENet = MakePrediction(baggingmodel_ENet);print("baggingmodel_ENet")
-sbaggingmodel_KRR = MakePrediction(baggingmodel_KRR);print("baggingmodel_KRR")
-sbaggingmodel_svr = MakePrediction(baggingmodel_svr);print("baggingmodel_svr")
-sbaggingmodel_gb = MakePrediction(baggingmodel_gb);print("baggingmodel_gb")
-sbaggingmodel_lgb = MakePrediction(baggingmodel_lgb);print("baggingmodel_lgb")
-sbaggingmodel_xgb = MakePrediction(baggingmodel_xgb);print("baggingmodel_xgb")
-sstack = MakePrediction(stackmodel);print("stackmodel")
+sbaggingmodel_lasso = MakePrediction(baggingmodel_lasso);print("sbaggingmodel_lasso done")
+sbaggingmodel_ENet = MakePrediction(baggingmodel_ENet);print("baggingmodel_ENet done")
+sbaggingmodel_KRR = MakePrediction(baggingmodel_KRR);print("baggingmodel_KRR done")
+sbaggingmodel_svr = MakePrediction(baggingmodel_svr);print("baggingmodel_svr done")
+sbaggingmodel_gb = MakePrediction(baggingmodel_gb);print("baggingmodel_gb done")
+sbaggingmodel_lgb = MakePrediction(baggingmodel_lgb);print("baggingmodel_lgb done")
+sbaggingmodel_xgb = MakePrediction(baggingmodel_xgb);print("baggingmodel_xgb done")
+sstack = MakePrediction(stackmodel);print("stackmodel done")
 
 final_submission = pd.concat([0.1*sbaggingmodel_lasso["SalePrice"],0.1*sbaggingmodel_ENet["SalePrice"],0.1*sbaggingmodel_KRR["SalePrice"],0.1*sbaggingmodel_svr["SalePrice"],0.1*sbaggingmodel_gb["SalePrice"],0.15*sbaggingmodel_xgb["SalePrice"],0.2*sstack["SalePrice"]], axis=1).sum(axis=1)
 submission = final_submission
 submission.to_csv("submission5.csv", index=False)
-#
-#1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
-# stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_lgb)
-# RMSE: 21651.245 | MAPE: 8.206
-#1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
-# stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=KRR)
-# RMSE: 24939.494 | MAPE: 8.091
-#1 estimators = [('GBoost',GBoost),('lasso',lasso),('ENet',ENet),('KRR',KRR),('xgb', model_xgb),('lgb', model_lgb)]
-# stackmodel_1 = StackingRegressor(estimators=estimators,final_estimator=model_xgb)
-#
+
 print("END")
