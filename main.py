@@ -2,7 +2,7 @@ import warnings
 
 from mlxtend.regressor import StackingCVRegressor
 from sklearn.svm import SVR
-
+import progressbar
 warnings.filterwarnings("ignore")
 from sklearn.linear_model import ElasticNet, Lasso, RidgeCV, LassoCV, ElasticNetCV, Ridge
 from sklearn.ensemble import GradientBoostingRegressor, StackingRegressor, BaggingRegressor
@@ -25,7 +25,7 @@ def mean_absolute_percentage_error(y_true, y_pred):
 
 
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.metrics import *
 from sklearn.pipeline import make_pipeline
 import lightgbm as lgb
@@ -59,8 +59,10 @@ class MultiColumnLabelEncoder:
 def TestModel(model, it, val_size,verbose):
     RMSE_list = []
     MAPE_list = []
+
+
     for i in range(it):
-        X_train, X_val, Y_train, Y_val = train_test_split(df_train.drop(columns="SalePrice"), df_train["SalePrice"], test_size=val_size, shuffle=True)
+        X_train, X_val, Y_train, Y_val = train_test_split(df_train.drop(columns="SalePrice").iloc[:,1:], df_train["SalePrice"], test_size=val_size, shuffle=True)
         ###################### Log-transformation of the target variable #############################################
         if True:
             # Remove Outliers
@@ -90,12 +92,15 @@ def TestModel(model, it, val_size,verbose):
             X_val = np.array(X_val)
             Y_val = np.array(Y_val)
 
+
+        # print
         model.fit(X_train, Y_train)
         y_pred = np.expm1(model.predict(X_val))
         rmse = mean_squared_log_error(Y_val, y_pred)
         mape = mean_absolute_percentage_error(Y_val, y_pred)
         RMSE_list.append(rmse)
         MAPE_list.append(mape)
+        print(i+1)
 
     if verbose:
         print('RMSLE: ' + str(round(np.mean(RMSE_list),3)) + ' | MAPE: ' + str(round(np.mean(MAPE_list),3)))
@@ -363,6 +368,57 @@ df_test['hasgarage'] = df_test['GarageArea'].apply(lambda x: 1 if x > 0 else 0)
 df_test['hasbsmt'] = df_test['TotalBsmtSF'].apply(lambda x: 1 if x > 0 else 0)
 df_test['hasfireplace'] = df_test['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
 
+## Modelling
+# kfolds = KFold(n_splits=10, shuffle=True, random_state=42)
+#
+# def rmsle(y, y_pred):
+#     return np.sqrt(mean_squared_error(y, y_pred))
+#
+# def cv_rmse(model):
+#     rmse = np.sqrt(-cross_val_score(model, X, y, scoring="neg_mean_squared_error", cv=kfolds))
+#     return (rmse)
+# alphas_alt = [14.5, 14.6, 14.7, 14.8, 14.9, 15, 15.1, 15.2, 15.3, 15.4, 15.5]
+# alphas2 = [5e-05, 0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006, 0.0007, 0.0008]
+# e_alphas = [0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006, 0.0007]
+# e_l1ratio = [0.8, 0.85, 0.9, 0.95, 0.99, 1]
+#
+# ridge = make_pipeline(RobustScaler(), RidgeCV(alphas=alphas_alt, cv=kfolds))
+# lasso = make_pipeline(RobustScaler(), LassoCV(max_iter=1e7, alphas=alphas2, random_state=42, cv=kfolds))
+# elasticnet = make_pipeline(RobustScaler(), ElasticNetCV(max_iter=1e7, alphas=e_alphas, cv=kfolds, l1_ratio=e_l1ratio))
+# svr = make_pipeline(RobustScaler(), SVR(C= 20, epsilon= 0.008, gamma=0.0003,))
+# gbr = GradientBoostingRegressor(n_estimators=3000, learning_rate=0.05, max_depth=4, max_features='sqrt', min_samples_leaf=15, min_samples_split=10, loss='huber', random_state =42)
+# lightgbm = lgb.LGBMRegressor(objective='regression',
+#                                        num_leaves=4,
+#                                        learning_rate=0.01,
+#                                        n_estimators=5000,
+#                                        max_bin=200,
+#                                        bagging_fraction=0.75,
+#                                        bagging_freq=5,
+#                                        bagging_seed=7,
+#                                        feature_fraction=0.2,
+#                                        feature_fraction_seed=7,
+#                                        verbose=-1,
+#                                        )
+# xgboost = xgb.XGBRegressor(learning_rate=0.01,n_estimators=3460,
+#                                      max_depth=3, min_child_weight=0,
+#                                      gamma=0, subsample=0.7,
+#                                      colsample_bytree=0.7,
+#                                      objective='reg:linear', nthread=-1,
+#                                      scale_pos_weight=1, seed=27,
+#                                      reg_alpha=0.00006)
+# stack_gen = StackingCVRegressor(regressors=(ridge, lasso, elasticnet, gbr, xgboost, lightgbm),
+#                                 meta_regressor=xgboost,
+#                                 use_features_in_secondary=True)
+
+# score = cv_rmse(ridge)
+# print("LASSO: {:.4f} ({:.4f})\n".format(score.mean(), score.std()))
+
+
+
+
+
+
+
 lasso = make_pipeline(RobustScaler(), Lasso(alpha =0.0005, random_state=1))
 ENet = make_pipeline(RobustScaler(), ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3))
 KRR = make_pipeline(RobustScaler(), KernelRidge(alpha=0.6, kernel='polynomial', degree=2, coef0=2.5))
@@ -388,34 +444,36 @@ baggingmodel_lasso = BaggingRegressor(base_estimator=lasso)
 baggingmodel_ENet = BaggingRegressor(base_estimator=ENet)
 baggingmodel_KRR = BaggingRegressor(base_estimator=KRR)
 baggingmodel_svr = BaggingRegressor(base_estimator=svr)
-baggingmodel_gb = BaggingRegressor(base_estimator=GBoost)
+GBoost = GBoost
 baggingmodel_lgb = BaggingRegressor(base_estimator=model_lgb)
 baggingmodel_xgb = BaggingRegressor(base_estimator=model_xgb)
-stackmodel = StackingCVRegressor(regressors=(KRR, lasso, ENet, GBoost, model_xgb, model_lgb),
+stackmodel = StackingCVRegressor(regressors=(lasso, ENet, GBoost, model_xgb, model_lgb),
                                 meta_regressor=model_lgb,
                                 use_features_in_secondary=True)
 
-# TestModel(stackmodel, 20, 0.20,True)
-#stackmodel:
-#baggingmodel_xgb:
-#baggingmodel_lgb:
-#baggingmodel_gb:
-#baggingmodel_svr:
-#baggingmodel_KRR:
-#baggingmodel_ENet:
-#baggingmodel_lasso:
+TestModel(lasso, 5, 0.20,True)
+#lasso
 
-sbaggingmodel_lasso = MakePrediction(baggingmodel_lasso);print("sbaggingmodel_lasso done")
-sbaggingmodel_ENet = MakePrediction(baggingmodel_ENet);print("baggingmodel_ENet done")
-sbaggingmodel_KRR = MakePrediction(baggingmodel_KRR);print("baggingmodel_KRR done")
-sbaggingmodel_svr = MakePrediction(baggingmodel_svr);print("baggingmodel_svr done")
-sbaggingmodel_gb = MakePrediction(baggingmodel_gb);print("baggingmodel_gb done")
+# sbaggingmodel_lasso = MakePrediction(baggingmodel_lasso);print("sbaggingmodel_lasso done")
+# sbaggingmodel_ENet = MakePrediction(baggingmodel_ENet);print("baggingmodel_ENet done")
+# sbaggingmodel_KRR = MakePrediction(baggingmodel_KRR);print("baggingmodel_KRR done")
+# sbaggingmodel_svr = MakePrediction(baggingmodel_svr);print("baggingmodel_svr done")
+sGBoost = MakePrediction(GBoost);print("GBoost done")
 sbaggingmodel_lgb = MakePrediction(baggingmodel_lgb);print("baggingmodel_lgb done")
 sbaggingmodel_xgb = MakePrediction(baggingmodel_xgb);print("baggingmodel_xgb done")
-sstack = MakePrediction(stackmodel);print("stackmodel done")
+# sstack = MakePrediction(stackmodel);print("stackmodel done")
 
-final_submission = pd.concat([0.1*sbaggingmodel_lasso["SalePrice"],0.1*sbaggingmodel_ENet["SalePrice"],0.1*sbaggingmodel_KRR["SalePrice"],0.1*sbaggingmodel_svr["SalePrice"],0.1*sbaggingmodel_gb["SalePrice"],0.15*sbaggingmodel_xgb["SalePrice"],0.2*sstack["SalePrice"]], axis=1).sum(axis=1)
-submission = final_submission
-submission.to_csv("submission5.csv", index=False)
+# sbaggingmodel_lasso.to_csv("submission5.csv", index=False)
+
+#Final Ensemble Prediction
+# final_submission = pd.concat([0.1*sbaggingmodel_lasso["SalePrice"],0.5*sbaggingmodel_ENet["SalePrice"],
+#                               0.3*sGBoost["SalePrice"],0.1*sbaggingmodel_xgb["SalePrice"],0.1*sbaggingmodel_lgb["SalePrice"],
+#                               0.10*sstack["SalePrice"]], axis=1).sum(axis=1)
+final_submission = pd.concat([0.4*sGBoost["SalePrice"],0.3*sbaggingmodel_xgb["SalePrice"],0.3*sbaggingmodel_lgb["SalePrice"]], axis=1).sum(axis=1)
+s = sbaggingmodel_xgb.copy()
+s["SalePrice"] = final_submission
+submission = s
+submission.to_csv("submission7.csv", index=False)
+
 
 print("END")
