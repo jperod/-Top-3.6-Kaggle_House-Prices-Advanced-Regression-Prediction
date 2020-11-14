@@ -45,6 +45,7 @@ outliers = np.squeeze(np.argwhere(outliers==-1))
 X = X.drop(X.index[outliers])
 X_train = X_train.drop(X_train.index[outliers])
 y = y.drop(y.index[outliers])
+ID_train = ID_train.drop(y.index[outliers])
 
 #Visualize all features and analyze for Data Type & Missing Values
 
@@ -138,7 +139,7 @@ X['hasfireplace'] = X['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
 X = pd.get_dummies(X).reset_index(drop=True)
 
 X_train = X.iloc[0:X_train.shape[0],:]
-
+X_test = X.iloc[-X_test.shape[0]:,:]
 kfolds = KFold(n_splits=5, shuffle=True, random_state=2020)
 
 def rmsle(y, y_pred):
@@ -179,48 +180,54 @@ xgboost = xgb.XGBRegressor(colsample_bytree=0.2, gamma=0.01,
 stack_gen = StackingCVRegressor(regressors=(ridge, lasso, elasticnet, gbr, xgboost, lightgbm),
                                 meta_regressor=xgboost,
                                 use_features_in_secondary=True)
-score, score2 = cv_rmse(ridge)
-print("RIDGE: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
-
-score, score2 = cv_rmse(lasso)
-print("LASSO: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
-
-score, score2 = cv_rmse(elasticnet)
-print("ENet: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
-
-score, score2 = cv_rmse(svr)
-print("SVR: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
-
-score, score2 = cv_rmse(lightgbm)
-print("LGB: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
-
-score, score2 = cv_rmse(gbr)
-print("GBR: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
-
-score, score2 = cv_rmse(xgboost)
-print("XGB: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
-
-score, score2 = cv_rmse(stack_gen)
-print("STACK_MODEL: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
+# score, score2 = cv_rmse(ridge)
+# print("RIDGE: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
 #
-# print('stack_gen')
-# stack_gen_model = stack_gen.fit(np.array(X_train), np.array(y))
-# print('elasticnet')
-# elastic_model = elasticnet.fit(np.array(X_train), np.array(y))
-# print('Lasso')
-# lasso_model = lasso.fit(X_train, y)
-# print('Ridge')
-# ridge_model = ridge.fit(X_train, y)
-# print('Svr')
-# svr_model = svr.fit(X_train, y)
-# print('GradientBoosting')
-# gbr_model = gbr.fit(X_train, y)
-# print('xgboost')
-# xgb_model = xgboost.fit(X_train, y)
-# print('lightgbm')
-# lgb_model = lightgbm.fit(X_train, y)
+# score, score2 = cv_rmse(lasso)
+# print("LASSO: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
 #
+# score, score2 = cv_rmse(elasticnet)
+# print("ENet: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
 #
+# score, score2 = cv_rmse(svr)
+# print("SVR: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
+#
+# score, score2 = cv_rmse(lightgbm)
+# print("LGB: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
+#
+# score, score2 = cv_rmse(gbr)
+# print("GBR: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
+#
+# score, score2 = cv_rmse(xgboost)
+# print("XGB: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
+#
+# score, score2 = cv_rmse(stack_gen)
+# print("STACK_MODEL: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
+
+def MakePrediction(model, X, y):
+    model.fit(X, y)
+    # y_pred = model.predict(X_test)
+    y_pred = np.expm1(model.predict(np.array(X_test)))
+    return pd.DataFrame(y_pred, columns=['SalePrice'])
+
+print('elasticnet')
+Pred_Elastic = MakePrediction(elasticnet, np.array(X_train), np.array(y))
+print('Lasso')
+lasso_model = lasso.fit(X_train, y)
+print('Ridge')
+ridge_model = ridge.fit(X_train, y)
+print('Svr')
+svr_model = svr.fit(X_train, y)
+print('GradientBoosting')
+gbr_model = gbr.fit(X_train, y)
+print('xgboost')
+xgb_model = xgboost.fit(X_train, y)
+print('lightgbm')
+lgb_model = lightgbm.fit(X_train, y)
+print('stack_gen')
+Pred = MakePrediction(stack_gen, np.array(X_train), np.array(y))
+
+
 
 
 print("END")
