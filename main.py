@@ -140,7 +140,7 @@ X = pd.get_dummies(X).reset_index(drop=True)
 
 X_train = X.iloc[0:X_train.shape[0],:]
 X_test = X.iloc[-X_test.shape[0]:,:]
-kfolds = KFold(n_splits=3, shuffle=True, random_state=0)
+kfolds = KFold(n_splits=10, shuffle=True, random_state=0)
 
 def rmsle(y, y_pred):
     return np.sqrt(mean_squared_error(y, y_pred))
@@ -163,13 +163,13 @@ e_alphas = [0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006, 0.0007]
 e_l1ratio = [0.8, 0.85, 0.9, 0.95, 0.99, 1]
 
 from sklearn.impute import SimpleImputer
-imp_median = SimpleImputer(missing_values=np.nan, strategy='median')
+imp_median = SimpleImputer(missing_values=np.nan, strategy="constant", fill_value=0)
 
-ridge = BaggingRegressor(base_estimator=make_pipeline(RobustScaler(), RidgeCV(alphas=alphas_alt, cv=kfolds)))
-lasso = BaggingRegressor(base_estimator=make_pipeline(RobustScaler(), LassoCV(max_iter=1e7, alphas=alphas2, random_state=42, cv=kfolds)))
-elasticnet = BaggingRegressor(base_estimator=make_pipeline(RobustScaler(),  ElasticNetCV(max_iter=1e7, alphas=e_alphas, cv=kfolds, l1_ratio=e_l1ratio)))
-svr = BaggingRegressor(base_estimator=make_pipeline(RobustScaler(), SVR(C= 20, epsilon= 0.008, gamma=0.0003,)))
-gbr = BaggingRegressor(base_estimator=GradientBoostingRegressor(n_estimators=3000, learning_rate=0.05, max_depth=4, max_features='sqrt',
+ridge = make_pipeline(RobustScaler(), imp_median, RidgeCV(alphas=alphas_alt, cv=kfolds))
+lasso = make_pipeline(RobustScaler(), imp_median, LassoCV(max_iter=1e7, alphas=alphas2, random_state=42, cv=kfolds))
+elasticnet = make_pipeline(RobustScaler(), imp_median,  ElasticNetCV(max_iter=1e7, alphas=e_alphas, cv=kfolds, l1_ratio=e_l1ratio))
+svr = make_pipeline(RobustScaler(), imp_median, SVR(C= 20, epsilon= 0.008, gamma=0.0003,))
+gbr = make_pipeline(imp_median, GradientBoostingRegressor(n_estimators=3000, learning_rate=0.05, max_depth=4, max_features='sqrt',
                                 min_samples_leaf=15, min_samples_split=10, loss='huber', random_state =42))
 lightgbm = BaggingRegressor(base_estimator=lgb.LGBMRegressor(objective='regression',num_leaves=5, max_depth=-1,
                               learning_rate=0.05, n_estimators=720,
@@ -180,9 +180,16 @@ xgboost = BaggingRegressor(base_estimator=xgb.XGBRegressor(colsample_bytree=0.2,
                              min_child_weight=2, n_estimators=1000,
                              reg_alpha=0.1, reg_lambda=0.85,
                              subsample=0.5, random_state =7, nthread = -1))
-stack_gen = StackingCVRegressor(regressors=(ridge, lasso, elasticnet, gbr, xgboost, lightgbm),
+stack_gen = make_pipeline(imp_median, StackingCVRegressor(regressors=(ridge, lasso, elasticnet, gbr, xgb.XGBRegressor(colsample_bytree=0.2, gamma=0.01,
+                             learning_rate=0.05, max_depth=3,
+                             min_child_weight=2, n_estimators=1000,
+                             reg_alpha=0.1, reg_lambda=0.85,
+                             subsample=0.5, random_state =7, nthread = -1), lgb.LGBMRegressor(objective='regression',num_leaves=5, max_depth=-1,
+                              learning_rate=0.05, n_estimators=720,
+                              max_bin = 40, colsample_bytree=0.3,
+                              feature_fraction_seed=9, verbose=-1)),
                                 meta_regressor=xgboost,
-                                use_features_in_secondary=True)
+                                use_features_in_secondary=True))
 score, score2 = cv_rmse(ridge)
 print("RIDGE: RMSE {:.4f} | MAPE {:.4f})\n".format(score.mean(), score2.mean()))
 
@@ -232,11 +239,12 @@ PredStack = MakePrediction(stack_gen, np.array(X_train), np.array(y), X_test)
 final_pred = pd.concat([0.15*Pred_Elastic["SalePrice"],
                         0.15*Pred_Lasso["SalePrice"],
                         0.15*Pred_Ridge["SalePrice"],
-                        0.15*Pred_Svr["SalePrice"],
-                        0.15*Pred_Gbr["SalePrice"],
+                        0.10*Pred_Svr["SalePrice"],
+                        0.05*Pred_Gbr["SalePrice"],
                         0.15*Pred_Xgb["SalePrice"],
-                        0.1*Pred_lgb["SalePrice"]], axis=1).sum(axis=1)
+                        0.10*Pred_lgb["SalePrice"],
+                        0.15*PredStack["SalePrice"]], axis=1).sum(axis=1)
 submission = pd.read_csv("sample_submission.csv")
 submission["SalePrice"] = final_pred
-submission.to_csv("submission6.csv", index=False)
+submission.to_csv("submission7.csv", index=False)
 print("END")
