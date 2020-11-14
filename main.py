@@ -337,6 +337,7 @@ baggingmodel_2 = BaggingRegressor(base_estimator= model_xgb, n_estimators=10)
 #baggingmodel_1 => 0.013 | MAPE: 8.018
 #stackmodel_3 => RMSE: 0.015 | MAPE: 8.661
 
+ 
 submission = MakePrediction(baggingmodel_1)
 submission2 = MakePrediction(baggingmodel_2)
 submission["SalePrice"] = pd.concat([submission["SalePrice"],submission2["SalePrice"]], axis=1).mean(axis=1)
